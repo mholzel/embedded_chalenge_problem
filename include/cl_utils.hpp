@@ -27,6 +27,29 @@ inline auto deviceTypeToString(cl_device_type device_type) {
   return "";
 }
 
+inline void printDetails(const cl::Device &device, const cl::Kernel &kernel) {
+  std::cout << "CL_DEVICE_MAX_COMPUTE_UNITS = "
+            << device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << "\n";
+  std::cout << "CL_KERNEL_WORK_GROUP_SIZE = "
+            << kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device)
+            << "\n";
+  std::cout
+      << "CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE = "
+      << kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(
+             device)
+      << "\n";
+  std::cout << "CL_KERNEL_LOCAL_MEM_SIZE = "
+            << kernel.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
+            << "\n";
+  std::cout << "CL_KERNEL_PRIVATE_MEM_SIZE = "
+            << kernel.getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(device)
+            << "\n";
+  std::cout << "CL_KERNEL_COMPILE_WORK_GROUP_SIZE = "
+            << kernel.getWorkGroupInfo<CL_KERNEL_COMPILE_WORK_GROUP_SIZE>(
+                   device)
+            << std::endl;
+}
+
 template <typename Filename>
 inline auto readFile(const Filename &filename) {
   std::string str;

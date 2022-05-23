@@ -33,11 +33,14 @@ int main() {
 
   // Set up the consistency check kernel
   const auto opencl_file = here / "../cl/consistency_check.cl";
-  const auto consistency_check =
+  auto consistency_check_ptr =
       ConsistencyCheck::generate(opencl_file.c_str(), "consistencyCheck");
-  if (consistency_check) {
+  if (consistency_check_ptr) {
     std::cout << "kernel generated" << std::endl;
   }
+  consistency_check_ptr->resize(disp_left.cols, disp_left.rows);
+  const auto consistency_check = *consistency_check_ptr;
+  const auto [left, right] = consistency_check(disp_left, disp_right);
 
   /*
   Add your left - right consistency check here.
