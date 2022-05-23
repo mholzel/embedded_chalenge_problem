@@ -7,10 +7,36 @@
 
 #include <CL/cl.hpp>
 
+#include "filesystem.hpp"
+
+inline auto deviceTypeToString(cl_device_type device_type) {
+  switch (device_type) {
+    case CL_DEVICE_TYPE_DEFAULT:
+      return "CL_DEVICE_TYPE_DEFAULT";
+    case CL_DEVICE_TYPE_CPU:
+      return "CL_DEVICE_TYPE_CPU";
+    case CL_DEVICE_TYPE_GPU:
+      return "CL_DEVICE_TYPE_GPU";
+    case CL_DEVICE_TYPE_ACCELERATOR:
+      return "CL_DEVICE_TYPE_ACCELERATOR";
+    case CL_DEVICE_TYPE_CUSTOM:
+      return "CL_DEVICE_TYPE_CUSTOM";
+    case CL_DEVICE_TYPE_ALL:
+      return "CL_DEVICE_TYPE_ALL";
+  }
+  return "";
+}
+
 template <typename Filename>
 inline auto readFile(const Filename &filename) {
-  std::ifstream src(filename);
   std::string str;
+
+  if (not fs::exists(filename)) {
+    std::cerr << filename << " does not exist." << std::endl;
+    return str;
+  }
+
+  std::ifstream src(filename);
 
   src.seekg(0, std::ios::end);
   str.reserve(src.tellg());

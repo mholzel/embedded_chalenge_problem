@@ -35,7 +35,7 @@ int main() {
   }
 
   // Set up the consistency check kernel
-  const auto opencl_file = here / "../cl/double_everything.cl";
+  const auto opencl_file = here / "../cl/consistency_check.cl";
   const auto consistency_check =
       ConsistencyCheck::generate(opencl_file.c_str());
   if (consistency_check) {
