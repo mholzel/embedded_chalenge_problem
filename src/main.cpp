@@ -4,6 +4,7 @@
 
 #include <CL/cl.hpp>
 
+#include "cl_utils.hpp"
 #include "filesystem.hpp"
 
 int main() {
@@ -33,8 +34,14 @@ int main() {
   }
 
   // Try the basic OpenCL build process
+  const auto opencl_file = here / "../cl/double_everything.cl";
   cl::Context context(CL_DEVICE_TYPE_ALL);
   cl::Device device(context.getInfo<CL_CONTEXT_DEVICES>()[0]);
+  const auto program =
+      buildProgramFromFile(context, device, opencl_file.c_str());
+  if (program) {
+    std::cout << "build success" << std::endl;
+  }
 
   /*
   Add your left - right consistency check here.
