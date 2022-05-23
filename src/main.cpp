@@ -2,9 +2,6 @@
 
 #include <opencv2/opencv.hpp>
 
-#include <CL/cl.hpp>
-
-#include "cl_utils.hpp"
 #include "consistency_check.hpp"
 #include "filesystem.hpp"
 
@@ -37,7 +34,7 @@ int main() {
   // Set up the consistency check kernel
   const auto opencl_file = here / "../cl/consistency_check.cl";
   const auto consistency_check =
-      ConsistencyCheck::generate(opencl_file.c_str());
+      ConsistencyCheck::generate(opencl_file.c_str(), "consistencyCheck");
   if (consistency_check) {
     std::cout << "kernel generated" << std::endl;
   }
