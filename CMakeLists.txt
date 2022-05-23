@@ -13,7 +13,7 @@ find_package(OpenCV REQUIRED)
 find_package(Threads REQUIRED)
 
 # Copy all kernels to the binary location
-set(kernels double_everything.cl)
+set(kernels consistency_check.cl)
 foreach (kernel IN ITEMS ${kernels})
     configure_file(${CMAKE_CURRENT_LIST_DIR}/cl/${kernel} ${CMAKE_CURRENT_BINARY_DIR}/cl/${kernel} COPYONLY)
 endforeach ()

@@ -1,4 +1,4 @@
-__kernel void doubleEverything(__global short * src, __global short * dst) {
+__kernel void consistencyCheck(__global short * src, __global short * dst) {
 
     size_t id = get_global_id(0);
     dst[id] = 2 * src[id];

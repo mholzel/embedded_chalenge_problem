@@ -28,6 +28,8 @@ inline std::unique_ptr<cl::Program> buildProgramFromFile(
   // Read the file
   const auto file_contents = readFile(filename);
   if (file_contents.empty()) {
+    std::cerr << "Cannot read " << filename
+              << ". The contents appear to be empty." << std::endl;
     return nullptr;
   }
 

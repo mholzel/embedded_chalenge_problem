@@ -5,6 +5,7 @@
 #include <CL/cl.hpp>
 
 #include "cl_utils.hpp"
+#include "consistency_check.hpp"
 #include "filesystem.hpp"
 
 int main() {
@@ -33,14 +34,12 @@ int main() {
     cv::waitKey(0);
   }
 
-  // Try the basic OpenCL build process
+  // Set up the consistency check kernel
   const auto opencl_file = here / "../cl/double_everything.cl";
-  cl::Context context(CL_DEVICE_TYPE_ALL);
-  cl::Device device(context.getInfo<CL_CONTEXT_DEVICES>()[0]);
-  const auto program =
-      buildProgramFromFile(context, device, opencl_file.c_str());
-  if (program) {
-    std::cout << "build success" << std::endl;
+  const auto consistency_check =
+      ConsistencyCheck::generate(opencl_file.c_str());
+  if (consistency_check) {
+    std::cout << "kernel generated" << std::endl;
   }
 
   /*
