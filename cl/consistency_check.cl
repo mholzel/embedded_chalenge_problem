@@ -24,8 +24,8 @@
 
 #endif  // __cplusplus
 
-__kernel void consistencyCheck(__global short* left_in,
-                               __global short* right_in,
+__kernel void consistencyCheck(__global const short* const left_in,
+                               __global const short* const right_in,
                                __global short* left_out,
                                __global short* right_out) {
   // For now, just double the inputs to
@@ -34,5 +34,8 @@ __kernel void consistencyCheck(__global short* left_in,
   right_out[id] = 2 * right_in[id];
 
   // Uncomment the following line if you want to see the IDs
-  //  printf("global, local id: %zu, %zu\n", get_global_id(0), get_local_id(0));
+  //  if (left_in[id] != 0) {
+  //    printf("global, local id: %zu, %zu %u %u\n", get_global_id(0),
+  //           get_local_id(0), left_in[id], left_out[id]);
+  //  }
 }
