@@ -81,7 +81,7 @@ class ConsistencyCheck {
   }
 
   static auto imageBytes(int16_t width, int16_t height) {
-    return 4 * width * height;
+    return 2 * width * height;
   }
 
   void resize(uint16_t w, uint16_t h) {
