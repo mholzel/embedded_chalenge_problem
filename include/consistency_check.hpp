@@ -11,18 +11,22 @@ class ConsistencyCheck {
  private:
   cl::Context context;
   cl::Kernel kernel;
+  cl::CommandQueue queue;
   uint16_t width = 0;
   uint16_t height = 0;
   uint16_t size = 0;
-  cl::Buffer left_in;
-  cl::Buffer right_in;
-  cl::Buffer left_out;
-  cl::Buffer right_out;
+  cl::Buffer left_in_buffer;
+  cl::Buffer right_in_buffer;
+  cl::Buffer left_out_buffer;
+  cl::Buffer right_out_buffer;
 
  public:
-  ConsistencyCheck(const cl::Context &context, cl::Kernel &kernel,
-                   uint16_t width, uint16_t height)
-      : context(context), kernel(kernel) {
+  ConsistencyCheck(const cl::Context &context, const cl::Device &device,
+                   cl::Kernel &kernel, uint16_t width, uint16_t height)
+      : context(context),
+        kernel(kernel),
+        queue(context, device)  // CL_QUEUE_PROFILING_ENABLE),
+  {
     resize(width, height);
   }
 
@@ -49,7 +53,8 @@ class ConsistencyCheck {
                 << std::endl;
       return nullptr;
     }
-    return std::make_unique<ConsistencyCheck>(context, kernel, width, height);
+    return std::make_unique<ConsistencyCheck>(context, device, kernel, width,
+                                              height);
   }
 
   static std::unique_ptr<ConsistencyCheck> generate(
@@ -85,40 +90,67 @@ class ConsistencyCheck {
       width = w;
       height = h;
       size = imageBytes(width, height);
-      left_in = cl::Buffer(context, CL_MEM_READ_ONLY, size);
-      right_in = cl::Buffer(context, CL_MEM_READ_ONLY, size);
-      left_out = cl::Buffer(context, CL_MEM_WRITE_ONLY, size);
-      right_out = cl::Buffer(context, CL_MEM_WRITE_ONLY, size);
+      left_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size);
+      right_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size);
+      left_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size);
+      right_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size);
 
       // Set the kernel arguments
       cl_uint arg = 0;
-      kernel.setArg<cl::Buffer>(arg++, left_in);
-      kernel.setArg<cl::Buffer>(arg++, right_in);
-      kernel.setArg<cl::Buffer>(arg++, left_out);
-      kernel.setArg<cl::Buffer>(arg++, right_out);
+      kernel.setArg<cl::Buffer>(arg++, left_in_buffer);
+      kernel.setArg<cl::Buffer>(arg++, right_in_buffer);
+      kernel.setArg<cl::Buffer>(arg++, left_out_buffer);
+      kernel.setArg<cl::Buffer>(arg++, right_out_buffer);
     }
   }
 
-  auto operator()(const cv::Mat &left, const cv::Mat &right) const {
-    // Check all of the dimensions
-    if (left.rows != right.rows or left.cols != right.cols) {
-      std::cerr << "The left and right disparity image must be the same "
-                   "dimensions, but the ones that you provided are "
-                << left.rows << "x" << left.cols << " and " << right.rows << "x"
-                << right.cols << " respectively" << std::endl;
-      return std::make_tuple(cv::Mat(), cv::Mat());
+  static bool areIncompatible(const cv::Mat &a, const char *a_name,
+                              const cv::Mat &b, const char *b_name) {
+    if (a.rows != b.rows) {
+      std::cerr << a_name << " and " << b_name
+                << " have different numbers of rows (" << a.rows << " vs "
+                << b.rows << ")" << std::endl;
+      return true;
+    } else if (a.cols != b.cols) {
+      std::cerr << a_name << " and " << b_name
+                << " have different numbers of cols (" << a.cols << " vs "
+                << b.cols << ")" << std::endl;
+      return true;
+    } else if (a.type() != b.type()) {
+      std::cerr << a_name << " and " << b_name
+                << " have different point types (" << a.type() << " vs "
+                << b.type() << ")" << std::endl;
+      return true;
     }
-    if (left.rows != height or left.cols != width) {
-      std::cerr << "The left and right disparity images have different "
-                   "heights and widths than this kernel. Specifically,  "
-                << left.rows << "x" << left.cols << " vs " << height << "x"
-                << width << ". You must call kernel.resize() before running."
-                << std::endl;
-      return std::make_tuple(cv::Mat(), cv::Mat());
-    }
-    // TODO Also check the types of the left and right images
+    return false;
+  }
 
-    // TODO Magic
-    return std::make_tuple(left, right);
+  bool operator()(const cv::Mat &left_in, const cv::Mat &right_in,
+                  const cv::Mat &left_out, const cv::Mat &right_out) const {
+    // Check all of the dimensions
+    if (areIncompatible(left_in, "Left input", right_in, "right input") or
+        areIncompatible(left_in, "Left input", left_out, "left output") or
+        areIncompatible(left_in, "Left input", right_out, "right output")) {
+      return EXIT_FAILURE;
+    }
+
+    // TODO: Handle the case where the GPU can not hold 4 images in memory
+
+    // Write data to the device
+    queue.enqueueWriteBuffer(left_in_buffer, false, 0, size, left_in.data);
+    queue.enqueueWriteBuffer(right_in_buffer, false, 0, size, right_in.data);
+
+    // Do the actual encoding
+    if (auto err = queue.enqueueNDRangeKernel(kernel, 0, width * height, 8)) {
+      std::cerr << "enqueueNDRangeKernel error " << errorString(err)
+                << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    // Read data from the device.
+    // Note that the last read is blocking.
+    queue.enqueueReadBuffer(left_out_buffer, false, 0, size, left_out.data);
+    queue.enqueueReadBuffer(right_out_buffer, true, 0, size, right_out.data);
+    return EXIT_SUCCESS;
   }
 };
