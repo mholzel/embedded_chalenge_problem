@@ -1,13 +1,17 @@
 #pragma once
 
+#include <condition_variable>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 
 #include <CL/cl.hpp>
 
 #include "filesystem.hpp"
+#include "scoped_timer.hpp"
 
 inline auto deviceTypeToString(cl_device_type device_type) {
   switch (device_type) {
@@ -225,16 +229,31 @@ inline std::unique_ptr<cl::Program> buildProgramFromFile(
   }
 
   // Try to build the program
+  double elapsed = 0;
+  std::atomic_bool building{true};
   auto program = std::make_unique<cl::Program>(context, file_contents);
-  if (program->build({device})) {
-    std::cerr << "Error building " << filename << std::endl;
-    if (program->getBuildInfo<CL_PROGRAM_BUILD_STATUS>(device) ==
-        CL_BUILD_ERROR) {
-      const auto name = device.getInfo<CL_DEVICE_NAME>();
-      const auto log = program->getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-      std::cerr << "Build log for " << name << ":\n" << log << std::endl;
+  std::thread compilation_thread([&]() {
+    ScopedTimer timer(&elapsed);
+    if (program->build({device})) {
+      std::cerr << "Error building " << filename << std::endl;
+      if (program->getBuildInfo<CL_PROGRAM_BUILD_STATUS>(device) ==
+          CL_BUILD_ERROR) {
+        const auto name = device.getInfo<CL_DEVICE_NAME>();
+        const auto log = program->getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+        std::cerr << "Build log for " << name << ":\n" << log << std::endl;
+      }
+      program = nullptr;
     }
-    return nullptr;
+    building = false;
+  });
+  std::cout << "Building " << filename << std::endl;
+  while (building) {
+    std::cout << "." << std::flush;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  }
+  std::cout << "\rBuilt in " << elapsed << " seconds" << std::endl;
+  if (compilation_thread.joinable()) {
+    compilation_thread.join();
   }
   return program;
 }
