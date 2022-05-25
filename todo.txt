@@ -1,0 +1,6 @@
+- Add GUI with different sliders for image size
+- Add timers for the encoder
+- Add test with sliding checkboard
+- Add test with very large images
+- Add warnings when whole row cannot be loaded
+- Split image if too large

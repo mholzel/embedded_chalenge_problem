@@ -25,7 +25,7 @@ int main() {
   }
 
   // Downsize for testing
-  const auto scale = 3;
+  const auto scale = 6;
   cv::resize(left_in, left_in, {left_in.cols / scale, left_in.rows / scale});
   cv::resize(right_in, right_in,
              {right_in.cols / scale, right_in.rows / scale});
