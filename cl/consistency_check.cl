@@ -34,20 +34,41 @@ __kernel void consistencyCheck(short tol, short width,
   size_t row_offset = id - col;
 
   // Look to see if there is a point in the right image that matches
-  // the disparity in the left image
-  short matched_col_in_right = col + left_in[id];
-  size_t start = row_offset + max(0, matched_col_in_right - tol);
-  size_t stop = row_offset + min(width - 1, matched_col_in_right + tol);
-  bool match_found = false;
-  for (short i = start; i <= stop; ++i) {
-    if (abs(i - right_in[i] - id) <= tol) {
-      left_out[id] = left_in[id];
-      match_found = true;
-      break;
+  // the disparity in the left image with the specified tolerance
+  {
+    short matched_col_in_right = col + left_in[id];
+    size_t start = row_offset + max(0, matched_col_in_right - tol);
+    size_t stop = row_offset + min(width - 1, matched_col_in_right + tol);
+    bool match_found = false;
+    for (short i = start; i <= stop; ++i) {
+      if (abs(i - id - right_in[i]) <= tol) {
+        left_out[id] = left_in[id];
+        match_found = true;
+        break;
+      }
+    }
+    if (!match_found) {
+      left_out[id] = 0;
     }
   }
-  if (!match_found) {
-    left_out[id] = 0;
+
+  // Look to see if there is a point in the left image that matches
+  // the disparity in the right image with the specified tolerance
+  {
+    short matched_col_in_left = col - right_in[id];
+    size_t start = row_offset + max(0, matched_col_in_left - tol);
+    size_t stop = row_offset + min(width - 1, matched_col_in_left + tol);
+    bool match_found = false;
+    for (short i = start; i <= stop; ++i) {
+      if (abs(id - i - left_in[i]) <= tol) {
+        right_out[id] = right_in[id];
+        match_found = true;
+        break;
+      }
+    }
+    if (!match_found) {
+      right_out[id] = 0;
+    }
   }
 
   // Uncomment the following line if you want to see the IDs
