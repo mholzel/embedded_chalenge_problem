@@ -7,6 +7,16 @@
 #include "scoped_timer.hpp"
 #include "type_to_string.hpp"
 
+void printMat(const cv::Mat &im) {
+  for (size_t i = 0; i < im.rows; ++i) {
+    for (size_t j = 0; j < im.cols; ++j) {
+      std::cout << im.at<uint16_t>(i, j) << ", ";
+    }
+    std::cout << "\n";
+  }
+  std::cout << std::endl;
+}
+
 int main() {
   static constexpr auto verbose = true;
   const auto here = fs::absolute(__FILE__).parent_path();
@@ -26,10 +36,13 @@ int main() {
   }
 
   // Downsize for testing
-  const auto scale = 6;
+  const auto scale = 1;
   cv::resize(left_in, left_in, {left_in.cols / scale, left_in.rows / scale});
   cv::resize(right_in, right_in,
              {right_in.cols / scale, right_in.rows / scale});
+
+  //  printMat(left_in);
+  printMat(right_in);
 
   // Make space for the output
   const auto rows = left_in.rows;
@@ -51,7 +64,7 @@ int main() {
   const auto consistency_check = *consistency_check_ptr;
 
   // Run the consistency check
-  for (size_t i = 0; i < 20; ++i) {
+  for (size_t i = 0; i < 1; ++i) {
     ScopedTimer timer;
     if (consistency_check(left_in, right_in, left_out, right_out)) {
       return EXIT_FAILURE;
