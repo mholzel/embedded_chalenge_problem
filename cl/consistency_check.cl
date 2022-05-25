@@ -24,14 +24,31 @@
 
 #endif  // __cplusplus
 
-__kernel void consistencyCheck(__global const short* const left_in,
+__kernel void consistencyCheck(short tol, short width,
+                               __global const short* const left_in,
                                __global const short* const right_in,
                                __global short* left_out,
                                __global short* right_out) {
-  // For now, just double the inputs to
   size_t id = get_global_id(0);
-  left_out[id] = 2 * left_in[id];
-  right_out[id] = 2 * right_in[id];
+  short col = id % width;
+  size_t row_offset = id - col;
+
+  // Look to see if there is a point in the right image that matches
+  // the disparity in the left image
+  short matched_col_in_right = col + left_in[id];
+  size_t start = row_offset + max(0, matched_col_in_right - tol);
+  size_t stop = row_offset + min(width - 1, matched_col_in_right + tol);
+  bool match_found = false;
+  for (short i = start; i <= stop; ++i) {
+    if (abs(i - right_in[i] - id) <= tol) {
+      left_out[id] = left_in[id];
+      match_found = true;
+      break;
+    }
+  }
+  if (!match_found) {
+    left_out[id] = 0;
+  }
 
   // Uncomment the following line if you want to see the IDs
   //  if (left_in[id] != 0) {

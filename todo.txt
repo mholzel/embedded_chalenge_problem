@@ -7,4 +7,4 @@ X Add timers for the encoder
 - Try the image interface for copying images to the GPU
 - Try to get the memory mapping working
 - Compile to SPIR (or SPIRV) so that the kernel doesn't need to be recompiled
-- Push the compilation to a separate thread
+X Push the compilation to a separate thread

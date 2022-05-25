@@ -15,6 +15,7 @@ class ConsistencyCheck {
   uint16_t width = 0;
   uint16_t height = 0;
   uint16_t size = 0;
+  uint16_t tolerance = 0;
   cl::Buffer left_in_buffer;
   cl::Buffer right_in_buffer;
   cl::Buffer left_out_buffer;
@@ -22,20 +23,19 @@ class ConsistencyCheck {
 
  public:
   ConsistencyCheck(const cl::Context &context, const cl::Device &device,
-                   cl::Kernel &kernel, uint16_t width, uint16_t height)
+                   cl::Kernel &kernel, uint16_t width, uint16_t height,
+                   uint16_t tolerance)
       : context(context),
         kernel(kernel),
-        queue(context, device)  // CL_QUEUE_PROFILING_ENABLE),
-  {
+        queue(context, device),  // CL_QUEUE_PROFILING_ENABLE),
+        tolerance(tolerance) {
     resize(width, height);
   }
 
-  static std::unique_ptr<ConsistencyCheck> generate(const cl::Context &context,
-                                                    const cl::Device &device,
-                                                    const char *filename,
-                                                    const char *kernelname,
-                                                    uint16_t width,
-                                                    uint16_t height) {
+  static std::unique_ptr<ConsistencyCheck> generate(
+      const cl::Context &context, const cl::Device &device,
+      const char *filename, const char *kernelname, uint16_t width,
+      uint16_t height, uint16_t tolerance) {
     const auto program = buildProgramFromFile(context, device, filename);
     if (not program) {
       std::cerr << "Could not generate the program" << std::endl;
@@ -54,12 +54,13 @@ class ConsistencyCheck {
       return nullptr;
     }
     return std::make_unique<ConsistencyCheck>(context, device, kernel, width,
-                                              height);
+                                              height, tolerance);
   }
 
   static std::unique_ptr<ConsistencyCheck> generate(
       const char *filename, const char *kernelname, uint16_t width = 0,
-      uint16_t height = 0, cl_device_type device_type = CL_DEVICE_TYPE_GPU) {
+      uint16_t height = 0, uint16_t tolerance = 0,
+      cl_device_type device_type = CL_DEVICE_TYPE_GPU) {
     // Get a list of devices of the specified type
     cl::Context context(device_type);
     const auto devices = context.getInfo<CL_CONTEXT_DEVICES>();
@@ -77,7 +78,8 @@ class ConsistencyCheck {
 
     // Use the first device to generate the kernel
     cl::Device device(devices[0]);
-    return generate(context, device, filename, kernelname, width, height);
+    return generate(context, device, filename, kernelname, width, height,
+                    tolerance);
   }
 
   static auto imageBytes(int16_t width, int16_t height) {
@@ -97,10 +99,19 @@ class ConsistencyCheck {
 
       // Set the kernel arguments
       cl_uint arg = 0;
+      kernel.setArg<cl_short>(arg++, tolerance);
+      kernel.setArg<cl_short>(arg++, width);
       kernel.setArg<cl::Buffer>(arg++, left_in_buffer);
       kernel.setArg<cl::Buffer>(arg++, right_in_buffer);
       kernel.setArg<cl::Buffer>(arg++, left_out_buffer);
       kernel.setArg<cl::Buffer>(arg++, right_out_buffer);
+    }
+  }
+
+  void setTolerance(uint16_t tol) {
+    if (tolerance != tol) {
+      tolerance = tol;
+      kernel.setArg<cl_short>(0, tolerance);
     }
   }
 
