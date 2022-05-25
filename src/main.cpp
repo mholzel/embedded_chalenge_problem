@@ -4,6 +4,7 @@
 
 #include "consistency_check.hpp"
 #include "filesystem.hpp"
+#include "scoped_timer.hpp"
 #include "type_to_string.hpp"
 
 int main() {
@@ -50,8 +51,11 @@ int main() {
   const auto consistency_check = *consistency_check_ptr;
 
   // Run the consistency check
-  if (consistency_check(left_in, right_in, left_out, right_out)) {
-    return EXIT_FAILURE;
+  for (size_t i = 0; i < 20; ++i) {
+    ScopedTimer timer;
+    if (consistency_check(left_in, right_in, left_out, right_out)) {
+      return EXIT_FAILURE;
+    }
   }
 
   // Show the images
