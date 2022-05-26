@@ -44,7 +44,7 @@ int main() {
   right_in /= scale;
 
   //  printMat(left_in);
-  printMat(right_in);
+  //  printMat(right_in);
 
   // Make space for the output
   const auto rows = left_in.rows;
