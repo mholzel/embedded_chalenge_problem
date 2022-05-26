@@ -36,6 +36,14 @@ class ConsistencyCheck {
         queue(context, device),  // CL_QUEUE_PROFILING_ENABLE),
         tolerance(tolerance) {
     resize(width, height);
+    std::cout << "CL_DEVICE_GLOBAL_MEM_SIZE         : "
+              << device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() << "\n";
+    std::cout << "CL_DEVICE_GLOBAL_MEM_CACHE_SIZE   : "
+              << device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>() << "\n";
+    std::cout << "CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE: "
+              << device.getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() << "\n";
+    std::cout << "CL_DEVICE_LOCAL_MEM_SIZE          : "
+              << device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() << "\n";
   }
 
   static std::unique_ptr<ConsistencyCheck> generate(
@@ -99,10 +107,19 @@ class ConsistencyCheck {
       width = w;
       height = h;
       size = imageBytes(width, height);
-      left_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size);
-      right_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size);
-      left_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size);
-      right_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size);
+      cl_int err = 0;
+      left_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size, &err);
+      if (producedError(err)) return;
+      right_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size, &err);
+      if (producedError(err)) return;
+      left_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size, &err);
+      if (producedError(err)) return;
+      right_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size, &err);
+      if (producedError(err)) return;
+      std::cout << "Size * 4                          : " << 4 * size << "\n";
+      std::cout << "Size                              : " << size << "\n";
+      std::cout << "Width                             : " << width << "\n";
+      std::cout << "Height                            : " << height << "\n";
 
       // Set the kernel arguments
       cl_uint arg = 0;
@@ -143,6 +160,14 @@ class ConsistencyCheck {
     return false;
   }
 
+  bool producedError(cl_int err) const {
+    if (err) {
+      std::cerr << errorString(err) << std::endl;
+      return true;
+    }
+    return false;
+  }
+
   bool operator()(const cv::Mat &left_in, const cv::Mat &right_in,
                   const cv::Mat &left_out, const cv::Mat &right_out) const {
     // Check all of the dimensions
@@ -155,20 +180,31 @@ class ConsistencyCheck {
     // TODO: Handle the case where the GPU can not hold 4 images in memory
 
     // Write data to the device
-    queue.enqueueWriteBuffer(left_in_buffer, false, 0, size, left_in.data);
-    queue.enqueueWriteBuffer(right_in_buffer, false, 0, size, right_in.data);
+    if (producedError(queue.enqueueWriteBuffer(left_in_buffer, false, 0, size,
+                                               left_in.data))) {
+      return EXIT_FAILURE;
+    }
+    if (producedError(queue.enqueueWriteBuffer(right_in_buffer, false, 0, size,
+                                               right_in.data))) {
+      return EXIT_FAILURE;
+    }
 
     // Do the actual encoding
-    if (auto err = queue.enqueueNDRangeKernel(kernel, 0, width * height, 8)) {
-      std::cerr << "enqueueNDRangeKernel error " << errorString(err)
-                << std::endl;
+    if (producedError(
+            queue.enqueueNDRangeKernel(kernel, 0, width * height, 1))) {
       return EXIT_FAILURE;
     }
 
     // Read data from the device.
     // Note that the last read is blocking.
-    queue.enqueueReadBuffer(left_out_buffer, false, 0, size, left_out.data);
-    queue.enqueueReadBuffer(right_out_buffer, true, 0, size, right_out.data);
+    if (producedError(queue.enqueueReadBuffer(left_out_buffer, false, 0, size,
+                                              left_out.data))) {
+      return EXIT_FAILURE;
+    }
+    if (producedError(queue.enqueueReadBuffer(right_out_buffer, true, 0, size,
+                                              right_out.data))) {
+      return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
   }
 
