@@ -21,10 +21,10 @@ class ConsistencyCheck {
   uint16_t height = 0;
   uint16_t size = 0;
   uint16_t tolerance = 0;
-  cl::Buffer left_in_buffer;
-  cl::Buffer right_in_buffer;
-  cl::Buffer left_out_buffer;
-  cl::Buffer right_out_buffer;
+  cl::Buffer left_in_buf;
+  cl::Buffer right_in_buf;
+  cl::Buffer left_out_buf;
+  cl::Buffer right_out_buf;
   GetGlobalId get_global_id;
 
  public:
@@ -108,14 +108,16 @@ class ConsistencyCheck {
       height = h;
       size = imageBytes(width, height);
       cl_int err = 0;
-      left_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size, &err);
-      if (producedError(err)) return;
-      right_in_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, size, &err);
-      if (producedError(err)) return;
-      left_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size, &err);
-      if (producedError(err)) return;
-      right_out_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, size, &err);
-      if (producedError(err)) return;
+      left_in_buf = cl::Buffer(context, CL_MEM_READ_ONLY, size, nullptr, &err);
+      if (showErrors(err)) return;
+      right_in_buf = cl::Buffer(context, CL_MEM_READ_ONLY, size, nullptr, &err);
+      if (showErrors(err)) return;
+      left_out_buf =
+          cl::Buffer(context, CL_MEM_WRITE_ONLY, size, nullptr, &err);
+      if (showErrors(err)) return;
+      right_out_buf =
+          cl::Buffer(context, CL_MEM_WRITE_ONLY, size, nullptr, &err);
+      if (showErrors(err)) return;
       std::cout << "Size * 4                          : " << 4 * size << "\n";
       std::cout << "Size                              : " << size << "\n";
       std::cout << "Width                             : " << width << "\n";
@@ -123,12 +125,12 @@ class ConsistencyCheck {
 
       // Set the kernel arguments
       cl_uint arg = 0;
-      kernel.setArg<cl_short>(arg++, tolerance);
-      kernel.setArg<cl_short>(arg++, width);
-      kernel.setArg<cl::Buffer>(arg++, left_in_buffer);
-      kernel.setArg<cl::Buffer>(arg++, right_in_buffer);
-      kernel.setArg<cl::Buffer>(arg++, left_out_buffer);
-      kernel.setArg<cl::Buffer>(arg++, right_out_buffer);
+      showErrors(kernel.setArg<cl_short>(arg++, tolerance));
+      showErrors(kernel.setArg<cl_short>(arg++, width));
+      showErrors(kernel.setArg<cl::Buffer>(arg++, left_in_buf));
+      showErrors(kernel.setArg<cl::Buffer>(arg++, right_in_buf));
+      showErrors(kernel.setArg<cl::Buffer>(arg++, left_out_buf));
+      showErrors(kernel.setArg<cl::Buffer>(arg++, right_out_buf));
     }
   }
 
@@ -160,7 +162,7 @@ class ConsistencyCheck {
     return false;
   }
 
-  bool producedError(cl_int err) const {
+  bool showErrors(cl_int err) const {
     if (err) {
       std::cerr << errorString(err) << std::endl;
       return true;
@@ -180,31 +182,20 @@ class ConsistencyCheck {
     // TODO: Handle the case where the GPU can not hold 4 images in memory
 
     // Write data to the device
-    if (producedError(queue.enqueueWriteBuffer(left_in_buffer, false, 0, size,
-                                               left_in.data))) {
-      return EXIT_FAILURE;
-    }
-    if (producedError(queue.enqueueWriteBuffer(right_in_buffer, false, 0, size,
-                                               right_in.data))) {
-      return EXIT_FAILURE;
-    }
+    showErrors(
+        queue.enqueueWriteBuffer(left_in_buf, false, 0, size, left_in.data));
+    showErrors(
+        queue.enqueueWriteBuffer(right_in_buf, false, 0, size, right_in.data));
 
     // Do the actual encoding
-    if (producedError(
-            queue.enqueueNDRangeKernel(kernel, 0, width * height, 1))) {
-      return EXIT_FAILURE;
-    }
+    showErrors(queue.enqueueNDRangeKernel(kernel, 0, width * height, 1));
 
     // Read data from the device.
     // Note that the last read is blocking.
-    if (producedError(queue.enqueueReadBuffer(left_out_buffer, false, 0, size,
-                                              left_out.data))) {
-      return EXIT_FAILURE;
-    }
-    if (producedError(queue.enqueueReadBuffer(right_out_buffer, true, 0, size,
-                                              right_out.data))) {
-      return EXIT_FAILURE;
-    }
+    showErrors(
+        queue.enqueueReadBuffer(left_out_buf, false, 0, size, left_out.data));
+    showErrors(
+        queue.enqueueReadBuffer(right_out_buf, true, 0, size, right_out.data));
     return EXIT_SUCCESS;
   }
 
