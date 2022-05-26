@@ -6,6 +6,7 @@
 #include <CL/cl.hpp>
 
 #include "cl_utils.hpp"
+#include "invalid_point.hpp"
 
 void consistencyCheck(short tol, short width, const short *const left_in,
                       const short *const right_in, short *left_out,
@@ -39,9 +40,10 @@ class ConsistencyCheck {
 
   static std::unique_ptr<ConsistencyCheck> generate(
       const cl::Context &context, const cl::Device &device,
-      const char *filename, const char *kernelname, uint16_t width,
-      uint16_t height, uint16_t tolerance) {
-    const auto program = buildProgramFromFile(context, device, filename);
+      const char *filename, const char *kernelname, std::string options,
+      uint16_t width, uint16_t height, uint16_t tolerance) {
+    const auto program =
+        buildProgramFromFile(context, device, filename, options);
     if (not program) {
       std::cerr << "Could not generate the program" << std::endl;
       return nullptr;
@@ -63,8 +65,8 @@ class ConsistencyCheck {
   }
 
   static std::unique_ptr<ConsistencyCheck> generate(
-      const char *filename, const char *kernelname, uint16_t width = 0,
-      uint16_t height = 0, uint16_t tolerance = 0,
+      const char *filename, const char *kernelname, std::string options = "",
+      uint16_t width = 0, uint16_t height = 0, uint16_t tolerance = 0,
       cl_device_type device_type = CL_DEVICE_TYPE_GPU) {
     // Get a list of devices of the specified type
     cl::Context context(device_type);
@@ -83,8 +85,8 @@ class ConsistencyCheck {
 
     // Use the first device to generate the kernel
     cl::Device device(devices[0]);
-    return generate(context, device, filename, kernelname, width, height,
-                    tolerance);
+    return generate(context, device, filename, kernelname, options, width,
+                    height, tolerance);
   }
 
   static auto imageBytes(int16_t width, int16_t height) {

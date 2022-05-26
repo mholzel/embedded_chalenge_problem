@@ -64,9 +64,11 @@ int main() {
   }
 
   // Set up the consistency check kernel
-  const auto opencl_file = here / "../cl/consistency_check.cl";
-  auto consistency_check_ptr =
-      ConsistencyCheck::generate(opencl_file.c_str(), "consistencyCheck");
+  std::string macros =
+      "-D INVALID_DISPARITY_VALUE=" + std::to_string(INVALID_DISPARITY_VALUE);
+  const auto opencl_file = here / "../cl/consistency_check_single.cl";
+  auto consistency_check_ptr = ConsistencyCheck::generate(
+      opencl_file.c_str(), "consistencyCheck", macros);
   if (not consistency_check_ptr) {
     return EXIT_FAILURE;
   }

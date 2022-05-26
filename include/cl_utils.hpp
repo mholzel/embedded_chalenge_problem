@@ -218,8 +218,8 @@ inline auto readFile(const Filename &filename) {
 
 /* Build the program from the specified filename.  */
 inline std::unique_ptr<cl::Program> buildProgramFromFile(
-    const cl::Context &context, const cl::Device &device,
-    const char *filename) {
+    const cl::Context &context, const cl::Device &device, const char *filename,
+    std::string options = "") {
   // Read the file
   const auto file_contents = readFile(filename);
   if (file_contents.empty()) {
@@ -234,7 +234,7 @@ inline std::unique_ptr<cl::Program> buildProgramFromFile(
   auto program = std::make_unique<cl::Program>(context, file_contents);
   std::thread compilation_thread([&]() {
     ScopedTimer timer(&elapsed);
-    if (program->build({device})) {
+    if (program->build({device}, options.c_str())) {
       std::cerr << "Error building " << filename << std::endl;
       if (program->getBuildInfo<CL_PROGRAM_BUILD_STATUS>(device) ==
           CL_BUILD_ERROR) {
