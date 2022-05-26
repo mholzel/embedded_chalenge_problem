@@ -72,9 +72,9 @@ int main() {
   if (not consistency_check_ptr) {
     return EXIT_FAILURE;
   }
-  consistency_check_ptr->resize(left_in.cols, left_in.rows);
-  consistency_check_ptr->setTolerance(100);
-  const auto consistency_check = *consistency_check_ptr;
+  auto consistency_check = *consistency_check_ptr;
+  consistency_check.resize(left_in.cols, left_in.rows);
+  consistency_check.setTolerance(100);
 
   // Run the consistency check
   for (size_t i = 0; i < 1; ++i) {

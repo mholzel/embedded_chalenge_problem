@@ -169,7 +169,7 @@ class ConsistencyCheck {
   }
 
   bool operator()(const cv::Mat &left_in, const cv::Mat &right_in,
-                  const cv::Mat &left_out, const cv::Mat &right_out) const {
+                  const cv::Mat &left_out, const cv::Mat &right_out) {
     // Check all of the dimensions
     if (areIncompatible(left_in, "Left input", right_in, "right input") or
         areIncompatible(left_in, "Left input", left_out, "left output") or
