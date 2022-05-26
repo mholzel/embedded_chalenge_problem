@@ -39,48 +39,58 @@ __kernel void consistencyCheck(short tol, short width,
   size_t id = get_global_id(0);
   short col = id % width;
   size_t row_offset = id - col;
+  short left_disp = left_in[id];
+  short right_disp = right_in[id];
 
   // Look to see if there is a point in the right image that matches
   // the disparity in the left image with the specified tolerance
-  {
-    short matched_col_in_right = col + left_in[id];
+  if (left_disp != INVALID_DISPARITY_VALUE &&
+      col + left_disp < width  // Make sure this index is in the same row
+  ) {
+    short matched_col_in_right = col + left_disp;
     size_t start = row_offset + max(0, matched_col_in_right - tol);
     size_t stop = row_offset + min(width - 1, matched_col_in_right + tol);
     bool match_found = false;
     for (short i = start; i <= stop; ++i) {
       if (abs(i - id - right_in[i]) <= tol) {
-        left_out[id] = left_in[id];
+        left_out[id] = left_disp;
         match_found = true;
         break;
       }
     }
     if (!match_found) {
-      left_out[id] = 0;
+      left_out[id] = INVALID_DISPARITY_VALUE;
     }
+  } else {
+    left_out[id] = INVALID_DISPARITY_VALUE;
   }
 
   // Look to see if there is a point in the left image that matches
   // the disparity in the right image with the specified tolerance
-  {
-    short matched_col_in_left = col - right_in[id];
+  if (right_disp != INVALID_DISPARITY_VALUE &&
+      col - right_disp >= 0  // Make sure this index is in the same row
+  ) {
+    short matched_col_in_left = col - right_disp;
     size_t start = row_offset + max(0, matched_col_in_left - tol);
     size_t stop = row_offset + min(width - 1, matched_col_in_left + tol);
     bool match_found = false;
     for (short i = start; i <= stop; ++i) {
       if (abs(id - i - left_in[i]) <= tol) {
-        right_out[id] = right_in[id];
+        right_out[id] = right_disp;
         match_found = true;
         break;
       }
     }
     if (!match_found) {
-      right_out[id] = 0;
+      right_out[id] = INVALID_DISPARITY_VALUE;
     }
+  } else {
+    right_out[id] = INVALID_DISPARITY_VALUE;
   }
 
   // Uncomment the following line if you want to see the IDs
-  //  if (left_in[id] != 0) {
+  //  if (left_disp != 0) {
   //    printf("global, local id: %zu, %zu %u %u\n", get_global_id(0),
-  //           get_local_id(0), left_in[id], left_out[id]);
+  //           get_local_id(0), left_disp, left_out[id]);
   //  }
 }

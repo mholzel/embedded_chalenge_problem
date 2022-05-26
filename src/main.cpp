@@ -64,7 +64,7 @@ int main() {
   }
 
   // Set up the consistency check kernel
-  std::string macros =
+  const auto macros =
       "-D INVALID_DISPARITY_VALUE=" + std::to_string(INVALID_DISPARITY_VALUE);
   const auto opencl_file = here / "../cl/consistency_check_single.cl";
   auto consistency_check_ptr = ConsistencyCheck::generate(

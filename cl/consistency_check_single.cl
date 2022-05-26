@@ -38,10 +38,11 @@ __kernel void consistencyCheck(short tol, short width,
                                __global short* right_out) {
   size_t id = get_global_id(0);
   short col = id % width;
+  short left_disp = left_in[id];
+  short right_disp = right_in[id];
 
   // Look to see if there is a point in the right image that matches
   // the disparity in the left image with the specified tolerance
-  short left_disp = left_in[id];
   if (left_disp != INVALID_DISPARITY_VALUE &&
       col + left_disp < width  // Make sure this index is in the same row
       && abs(left_disp - right_in[id + left_disp]) <= tol) {
@@ -52,7 +53,6 @@ __kernel void consistencyCheck(short tol, short width,
 
   // Look to see if there is a point in the left image that matches
   // the disparity in the right image with the specified tolerance
-  short right_disp = right_in[id];
   if (right_disp != INVALID_DISPARITY_VALUE &&
       col - right_disp >= 0  // Make sure this index is in the same row
       && abs(right_disp - left_in[id - right_disp]) <= tol) {
