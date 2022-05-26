@@ -13,15 +13,16 @@ find_package(OpenCV REQUIRED)
 find_package(Threads REQUIRED)
 
 # Copy all kernels to the binary location
-set(kernels consistency_check.cl)
+# Note: at the moment this is not used. We force the path in C++ by specifying relative to the cpp file
+file(GLOB kernels cl/*.cl)
 foreach (kernel IN ITEMS ${kernels})
-    configure_file(${CMAKE_CURRENT_LIST_DIR}/cl/${kernel} ${CMAKE_CURRENT_BINARY_DIR}/cl/${kernel} COPYONLY)
+    get_filename_component(kern ${kernel} NAME)
+    configure_file(${CMAKE_CURRENT_LIST_DIR}/cl/${kern} ${CMAKE_CURRENT_BINARY_DIR}/cl/${kern} COPYONLY)
     #    configure_file(${CMAKE_CURRENT_LIST_DIR}/cl/${kernel} ${CMAKE_CURRENT_BINARY_DIR}/cl/${kernel}.cpp COPYONLY)
     #    set_source_files_properties(cl/consistency_check.cl PROPERTIES LANGUAGE CXX)
 endforeach ()
 
 # Set up the actual build target
-set_source_files_properties(cl/consistency_check.cl PROPERTIES LANGUAGE CXX)
 add_executable(embedded_challenge_problem src/main.cpp
         #        ${CMAKE_CURRENT_BINARY_DIR}/cl/consistency_check.cl.cpp
         )
