@@ -36,7 +36,7 @@ int main() {
   }
 
   // Downsize for testing
-  const auto scale = 3;
+  const auto scale = 1;
   cv::resize(left_in, left_in, {left_in.cols / scale, left_in.rows / scale});
   cv::resize(right_in, right_in,
              {right_in.cols / scale, right_in.rows / scale});
@@ -74,7 +74,7 @@ int main() {
   }
   auto consistency_check = *consistency_check_ptr;
   consistency_check.resize(left_in.cols, left_in.rows);
-  consistency_check.setTolerance(100);
+  consistency_check.setTolerance(500 / scale);
 
   // Run the consistency check
   for (size_t i = 0; i < 1; ++i) {

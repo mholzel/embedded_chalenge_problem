@@ -51,7 +51,7 @@ __kernel void consistencyCheck(short tol, short width,
     size_t start = row_offset + max(0, matched_col_in_right - tol);
     size_t stop = row_offset + min(width - 1, matched_col_in_right + tol);
     bool match_found = false;
-    for (short i = start; i <= stop; ++i) {
+    for (size_t i = start; i <= stop; ++i) {
       if (abs(i - id - right_in[i]) <= tol) {
         left_out[id] = left_disp;
         match_found = true;
@@ -74,7 +74,7 @@ __kernel void consistencyCheck(short tol, short width,
     size_t start = row_offset + max(0, matched_col_in_left - tol);
     size_t stop = row_offset + min(width - 1, matched_col_in_left + tol);
     bool match_found = false;
-    for (short i = start; i <= stop; ++i) {
+    for (size_t i = start; i <= stop; ++i) {
       if (abs(id - i - left_in[i]) <= tol) {
         right_out[id] = right_disp;
         match_found = true;

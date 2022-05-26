@@ -19,7 +19,7 @@ class ConsistencyCheck {
   cl::CommandQueue queue;
   uint16_t width = 0;
   uint16_t height = 0;
-  uint16_t size = 0;
+  uint32_t size = 0;
   uint16_t tolerance = 0;
   cl::Buffer left_in_buf;
   cl::Buffer right_in_buf;
