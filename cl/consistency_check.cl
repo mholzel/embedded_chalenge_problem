@@ -1,6 +1,9 @@
 #ifdef __cplusplus
 
+#include <cstddef>
 #include <cstdint>
+
+#include "consistency_check.hpp"
 
 #define __kernel
 #define __constant const
@@ -19,6 +22,10 @@
 #define cl_ulong uint64_t
 #define cl_float float
 #define cl_double double
+
+#define abs std::abs
+#define max std::max
+#define min std::min
 
 #else
 

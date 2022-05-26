@@ -7,6 +7,10 @@
 
 #include "cl_utils.hpp"
 
+void consistencyCheck(short tol, short width, const short *const left_in,
+                      const short *const right_in, short *left_out,
+                      short *right_out);
+
 class ConsistencyCheck {
  private:
   cl::Context context;
@@ -20,6 +24,7 @@ class ConsistencyCheck {
   cl::Buffer right_in_buffer;
   cl::Buffer left_out_buffer;
   cl::Buffer right_out_buffer;
+  GetGlobalId get_global_id;
 
  public:
   ConsistencyCheck(const cl::Context &context, const cl::Device &device,
@@ -162,6 +167,26 @@ class ConsistencyCheck {
     // Note that the last read is blocking.
     queue.enqueueReadBuffer(left_out_buffer, false, 0, size, left_out.data);
     queue.enqueueReadBuffer(right_out_buffer, true, 0, size, right_out.data);
+    return EXIT_SUCCESS;
+  }
+
+  bool cpp(const cv::Mat &left_in, const cv::Mat &right_in,
+           const cv::Mat &left_out, const cv::Mat &right_out) {
+    // Check all of the dimensions
+    if (areIncompatible(left_in, "Left input", right_in, "right input") or
+        areIncompatible(left_in, "Left input", left_out, "left output") or
+        areIncompatible(left_in, "Left input", right_out, "right output")) {
+      return EXIT_FAILURE;
+    }
+
+    get_global_id.reset();
+    for (size_t i = 0; i < size; ++i) {
+      consistencyCheck(tolerance, width,
+                       reinterpret_cast<const short *const>(left_in.data),
+                       reinterpret_cast<const short *const>(right_in.data),
+                       reinterpret_cast<short *>(left_out.data),
+                       reinterpret_cast<short *>(right_out.data));
+    };
     return EXIT_SUCCESS;
   }
 };

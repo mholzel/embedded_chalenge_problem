@@ -257,3 +257,11 @@ inline std::unique_ptr<cl::Program> buildProgramFromFile(
   }
   return program;
 }
+
+// In C++, you can mimic the OpenCL kernel by just progressing linearly
+// through the indices
+struct GetGlobalId {
+  size_t index = 0;
+  auto operator()(size_t axis) { return index++; }
+  void reset() { index = 0; }
+};

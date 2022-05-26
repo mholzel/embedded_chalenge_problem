@@ -36,10 +36,12 @@ int main() {
   }
 
   // Downsize for testing
-  const auto scale = 12;
+  const auto scale = 6;
   cv::resize(left_in, left_in, {left_in.cols / scale, left_in.rows / scale});
   cv::resize(right_in, right_in,
              {right_in.cols / scale, right_in.rows / scale});
+  left_in /= scale;
+  right_in /= scale;
 
   //  printMat(left_in);
   printMat(right_in);
@@ -54,10 +56,12 @@ int main() {
   cv::Mat right_out(rows, cols, type);
 
   // Create some test images
-  left_in *= 0;
-  left_in.colRange(0, cols / 2) = cols / 2;
-  right_in *= 0;
-  right_in.colRange(cols / 2, cols) = cols / 2;
+  if (false) {
+    left_in *= 0;
+    left_in.colRange(0, cols / 2) = cols / 2;
+    right_in *= 0;
+    right_in.colRange(cols / 2, cols) = cols / 2;
+  }
 
   // Set up the consistency check kernel
   const auto opencl_file = here / "../cl/consistency_check.cl";
@@ -67,6 +71,7 @@ int main() {
     return EXIT_FAILURE;
   }
   consistency_check_ptr->resize(left_in.cols, left_in.rows);
+  consistency_check_ptr->setTolerance(100);
   const auto consistency_check = *consistency_check_ptr;
 
   // Run the consistency check
@@ -85,7 +90,7 @@ int main() {
     cv::vconcat(top, bottom, full);
     static constexpr auto window_name = "Display window";
     cv::namedWindow(window_name, CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO);
-    cv::imshow(window_name, 160 * full);
+    cv::imshow(window_name, 16 * scale * full);
     cv::waitKey(0);
   }
 
