@@ -2,13 +2,12 @@
 
 #include "consistency_check.hpp"
 
-static auto defaultOptions() {
+static auto defaultMacros() {
   return "-DINVALID_DISPARITY_VALUE=" + std::to_string(INVALID_DISPARITY_VALUE);
 }
 
-static auto extendedOptions(uint16_t width, uint16_t height,
-                            uint16_t tolerance) {
-  return defaultOptions()                         //
+static auto allMacros(uint16_t width, uint16_t height, uint16_t tolerance) {
+  return defaultMacros()                          //
          + " -DTOL=" + std::to_string(tolerance)  //
          + " -DWIDTH=" + std::to_string(width)    //
          + " -DELEMS=" + std::to_string(width * height);
@@ -18,8 +17,8 @@ static std::unique_ptr<ConsistencyCheck> generateConsistencyCheck(
     const cl::Context &context, const cl::Device &device, const char *filename,
     const char *kernelname, uint16_t width = 0, uint16_t height = 0,
     uint16_t tolerance = 0, bool using_macros = false) {
-  const auto options = using_macros ? extendedOptions(width, height, tolerance)
-                                    : defaultOptions();
+  const auto options =
+      using_macros ? allMacros(width, height, tolerance) : defaultMacros();
   const auto program = buildProgramFromFile(context, device, filename, options);
   if (not program) {
     std::cerr << "Could not generate the program" << std::endl;

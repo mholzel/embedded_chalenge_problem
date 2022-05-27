@@ -2,13 +2,13 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "generate_consistency_check.hpp"
+#include "average_time.hpp"
 #include "filesystem.hpp"
-#include "scoped_timer.hpp"
+#include "generate_consistency_check.hpp"
 #include "type_to_string.hpp"
 
 int main() {
-  static constexpr auto verbose = true;
+  static constexpr auto show_images = true;
   const auto here = fs::absolute(__FILE__).parent_path();
 
   // Load the input matrices
@@ -65,29 +65,16 @@ int main() {
       }
       auto consistency_check = *consistency_check_ptr;
 
-      double total_time = 0;
-      size_t iterations = 100;
-      size_t it_skip = 2;
-      for (size_t i = 0; i < iterations; ++i) {
-        double tmp;
-        {
-          ScopedTimer timer(&tmp);
-          if (consistency_check(left_in, right_in, left_out, right_out)) {
-            return EXIT_FAILURE;
-          }
-        }
-        // Discard the first two iterations
-        if (i >= it_skip) total_time += tmp;
-      }
+      const auto average_time = averageTime(
+          [&]() { consistency_check(left_in, right_in, left_out, right_out); });
       std::cout << file << (with_macros ? " with " : " without ")
-                << "macros took on average "
-                << total_time / (iterations - it_skip) << " seconds"
+                << "macros took on average " << average_time << " seconds"
                 << std::endl;
     }
   }
 
   // Show the images
-  if (verbose) {
+  if (show_images) {
     cv::Mat top, bottom, full;
     cv::hconcat(left_in, right_in, top);
     cv::hconcat(left_out, right_out, bottom);
@@ -97,6 +84,5 @@ int main() {
     cv::imshow(window_name, 16 * scale * full);
     cv::waitKey(0);
   }
-
   return EXIT_SUCCESS;
 }
