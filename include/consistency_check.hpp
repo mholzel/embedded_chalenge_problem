@@ -5,6 +5,7 @@
 
 #include <CL/cl.hpp>
 
+#include "cl_details.hpp"
 #include "cl_utils.hpp"
 #include "invalid_point.hpp"
 
@@ -36,14 +37,6 @@ class ConsistencyCheck {
         queue(context, device),  // CL_QUEUE_PROFILING_ENABLE),
         tolerance(tolerance) {
     resize(width, height);
-    std::cout << "CL_DEVICE_GLOBAL_MEM_SIZE         : "
-              << device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() << "\n";
-    std::cout << "CL_DEVICE_GLOBAL_MEM_CACHE_SIZE   : "
-              << device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>() << "\n";
-    std::cout << "CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE: "
-              << device.getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() << "\n";
-    std::cout << "CL_DEVICE_LOCAL_MEM_SIZE          : "
-              << device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() << "\n";
   }
 
   static std::unique_ptr<ConsistencyCheck> generate(
@@ -68,6 +61,7 @@ class ConsistencyCheck {
                 << std::endl;
       return nullptr;
     }
+    printDetails(device, kernel, kernelname, filename);
     return std::make_unique<ConsistencyCheck>(context, device, kernel, width,
                                               height, tolerance);
   }
@@ -93,6 +87,7 @@ class ConsistencyCheck {
 
     // Use the first device to generate the kernel
     cl::Device device(devices[0]);
+    printDetails(device);
     return generate(context, device, filename, kernelname, options, width,
                     height, tolerance);
   }
@@ -118,10 +113,6 @@ class ConsistencyCheck {
       right_out_buf =
           cl::Buffer(context, CL_MEM_WRITE_ONLY, size, nullptr, &err);
       if (showErrors(err)) return;
-      std::cout << "Size * 4                          : " << 4 * size << "\n";
-      std::cout << "Size                              : " << size << "\n";
-      std::cout << "Width                             : " << width << "\n";
-      std::cout << "Height                            : " << height << "\n";
 
       // Set the kernel arguments
       cl_uint arg = 0;
