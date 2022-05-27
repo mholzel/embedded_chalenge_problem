@@ -49,7 +49,8 @@ __kernel void consistencyCheck(
   size_t id = get_global_id(0);
 
   // If we are trying to optimize blocks, it could be that there are more
-  // items than elements in the image. This prevents out of bounds access
+  // items than elements in the image. This prevents out of bounds access.
+  // If you don't need this, disable it
   if (id > ELEMS) return;
 
   // TODO: If the device can load a whole row into memory, then we can use

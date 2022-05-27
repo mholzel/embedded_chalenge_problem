@@ -269,9 +269,6 @@ I tried to keep the pseudocode as simple as possible to focus on the issues of m
 
 - Macros: Just like in C/C++, you can use macros for constant values. These can be passed to the OpenCL when compiling a kernel. Values like height, width, and the tolerance in the consistency check benefit from being passed as macros. 
 - Vectorization: A lot of operations that we use like addition, multiplication, etc can be vectorized in OpenCL. Unfortunately, we don't have a lot of such operations here. 
-- ​
-
- one other factor which can have a drastic effect is to use macros whenever possible. 
-
-## 
-
+- Loop unrolling: When you have a for-loop of know size, you can manually expand the loop yourself, or try to use a compiler directive (pragma). 
+- Branching: If-statements are problematic for a lot of OpenCL compilers. When possible try to avoid these as much as possible. 
+- Modulo operators: These are often expensive operations in OpenCL. If you find yourself using one, you should always be on the lookout for a replacement. 
