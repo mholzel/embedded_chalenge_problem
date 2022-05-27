@@ -84,6 +84,8 @@ For instance, one common strategy in OpenCL programming is to first have all of 
 
 ## Optimizing the kernel 
 
+### Basic cache questions
+
 We know that the basic operation that a consistency check should perform is 
 
 ```c++
@@ -153,7 +155,8 @@ __kernel void consistencyCheck(__global short* left, __global short* right) {
     if (abs(right_in_disp - left[id - right_in_disp]) <= TOL) {
       right_out_disp = right_in_disp;
     }
-    
+    // TODO: Synchronize the work items so that nobody overwrites a value 
+    // while another work item is trying to extract.
     left[id] = left_out_disp;
     right[id] = right_out_disp;
 }
@@ -165,6 +168,73 @@ If you refer back to the original statistics for my device, it says that the max
 
 ```
 CL_DEVICE_MAX_WORK_GROUP_SIZE       : 256
+```
+
+So if we have an image with rows less than or equal to that size, and we add a synchronization lock to the kernel, then we can comfortably use the above approach.  For images with larger rows, we would need to process more than one pixel per work item:
+
+```c++
+__kernel void consistencyCheck(__global short* left, __global short* right) {
+    
+    size_t id = pixels_per_work_item * get_global_id(0);
+    short left_in_disp[pixels_per_work_item];   // TODO Extract from left
+    short right_in_disp[pixels_per_work_item];  // TODO Extract from left
+    short left_out_disp[pixels_per_work_item];  // TODO: Set all to invalid
+    short right_out_disp[pixels_per_work_item]; // TODO: Set all to invalid
+    
+    // TODO: Often you will see drastically better performance by unrolling this loop.
+    // Some compiler have a #pragma unroll option for that
+    // But that would be premature operation at this point because unrolling will make
+    // the kernel size larger, and might limit the max work group size
+    for (short i = id; i < id + pixels_per_work_item ; ++i){
+        if (abs(left_in_disp[i] - right[i + left_in_disp[i]]) <= TOL) { 
+          left_out_disp[i] = left_in_disp[i];
+        }
+        if (abs(right_in_disp[i] - left[i - right_in_disp[i]]) <= TOL) {
+          right_out_disp[i] = right_in_disp[i];
+        }
+    }
+    // TODO: Synchronize the work items so that nobody overwrites a value 
+    // while another work item is trying to extract.
+    for (short i = id; i < id + pixels_per_work_item ; ++i){    
+        left[id] = left_out_disp;
+        right[id] = right_out_disp;
+    }
+}
+```
+
+The final optimization that we could apply is to cache all of the global values into local memory at the beginning of the work group, and then to make sure that all reads happen out of that memory bank: 
+
+```c++
+__kernel void consistencyCheck(	__local short* local_left, 
+                               	__local short* local_right,
+                               	__global short* left, 
+                               	__global short* right) {
+    
+    size_t id = pixels_per_work_item * get_global_id(0);
+    for (short i = id; i < id + pixels_per_work_item ; ++i){
+        local_left[i] = left[i];
+        local_right[i] = right[i];
+    }
+    // Synchronize the work items     
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    // TODO: Often you will see drastically better performance by unrolling this loop.
+    // Some compiler have a #pragma unroll option for that
+    // But that would be premature operation at this point because unrolling will make
+    // the kernel size larger, and might limit the max work group size
+    for (short i = id; i < id + pixels_per_work_item ; ++i){
+        if (abs(left_local[i] - right_local[i + left_local[i]]) <= TOL) { 
+          left[i] = left_local[i];
+        } else {
+          left[i] = INVALID;
+        }
+        if (abs(right_local[i] - left_local[i - right_local[i]]) <= TOL) {
+          right[i] = right_in_disp[i];
+		} else {
+          right[i] = INVALID;
+        }
+    }
+}
 ```
 
 
