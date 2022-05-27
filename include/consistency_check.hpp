@@ -27,6 +27,8 @@ class ConsistencyCheck {
   cl::Buffer left_out_buf;
   cl::Buffer right_out_buf;
   GetGlobalId get_global_id;
+  size_t max_work_group_size;
+  size_t work_group_size_multiple;
 
  public:
   ConsistencyCheck(const cl::Context &context, const cl::Device &device,
@@ -37,6 +39,11 @@ class ConsistencyCheck {
         queue(context, device),  // CL_QUEUE_PROFILING_ENABLE),
         tolerance(tolerance) {
     resize(width, height);
+    kernel.getWorkGroupInfo(device, CL_KERNEL_WORK_GROUP_SIZE,
+                            &max_work_group_size);
+    kernel.getWorkGroupInfo(device,
+                            CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                            &work_group_size_multiple);
   }
 
   static std::unique_ptr<ConsistencyCheck> generate(
@@ -118,6 +125,7 @@ class ConsistencyCheck {
       cl_uint arg = 0;
       showErrors(kernel.setArg<cl_short>(arg++, tolerance));
       showErrors(kernel.setArg<cl_short>(arg++, width));
+      showErrors(kernel.setArg<cl_short>(arg++, width * height));
       showErrors(kernel.setArg<cl::Buffer>(arg++, left_in_buf));
       showErrors(kernel.setArg<cl::Buffer>(arg++, right_in_buf));
       showErrors(kernel.setArg<cl::Buffer>(arg++, left_out_buf));
@@ -162,7 +170,8 @@ class ConsistencyCheck {
   }
 
   bool operator()(const cv::Mat &left_in, const cv::Mat &right_in,
-                  const cv::Mat &left_out, const cv::Mat &right_out) {
+                  const cv::Mat &left_out, const cv::Mat &right_out,
+                  size_t work_group_size) {
     // Check all of the dimensions
     if (areIncompatible(left_in, "Left input", right_in, "right input") or
         areIncompatible(left_in, "Left input", left_out, "left output") or
@@ -170,7 +179,22 @@ class ConsistencyCheck {
       return EXIT_FAILURE;
     }
 
-    // TODO: Handle the case where the GPU can not hold 4 images in memory
+    // Make sure that the group size is greater than 0
+    if (work_group_size == 0) {
+      std::cerr << "work_group_size was set to 0, but must be a positive "
+                   "number. Using 1 instead."
+                << std::endl;
+      work_group_size = 1;
+    }
+
+    // TODO:
+    // Detect and handle the case where the GPU can not hold 4 images in memory.
+    // In that case, we will have to split the calls by running in a for-loop
+    // over chunks of the image. Something like:
+    // for (size_t i = 0 ; i < std::ceil(size / chunksize) ; ++i ) {
+    //  queue.enqueue(buf, false, 0, chunksize, left_in.data + i * chunksize));
+    //  ...
+    // }
 
     // Write data to the device
     showErrors(
@@ -178,8 +202,12 @@ class ConsistencyCheck {
     showErrors(
         queue.enqueueWriteBuffer(right_in_buf, false, 0, size, right_in.data));
 
-    // Do the actual encoding
-    showErrors(queue.enqueueNDRangeKernel(kernel, 0, width * height, 1));
+    // Do the actual encoding. Note that the number of work items must be a
+    // multiple of the work group size
+    const auto items =
+        ((size_t)std::ceil((float)width * height / work_group_size)) *
+        work_group_size;
+    showErrors(queue.enqueueNDRangeKernel(kernel, 0, items, work_group_size));
 
     // Read data from the device.
     // Note that the last read is blocking.
@@ -188,6 +216,12 @@ class ConsistencyCheck {
     showErrors(
         queue.enqueueReadBuffer(right_out_buf, true, 0, size, right_out.data));
     return EXIT_SUCCESS;
+  }
+
+  bool operator()(const cv::Mat &left_in, const cv::Mat &right_in,
+                  const cv::Mat &left_out, const cv::Mat &right_out) {
+    return operator()(left_in, right_in, left_out, right_out,
+                      max_work_group_size);
   }
 
   bool cpp(const cv::Mat &left_in, const cv::Mat &right_in,

@@ -31,35 +31,45 @@
 
 #endif  // __cplusplus
 
-__kernel void consistencyCheck(short tol, short width,
+// TODO: It is preferable to use macros for tol, width, elems.
+// We are not doing it here so that we can test multiple settings,
+// but you pass that in the same way that we set the INVALID_DISPARITY_VALUE
+__kernel void consistencyCheck(short tol, short width, short elems,
                                __global const short* const left_in,
                                __global const short* const right_in,
                                __global short* left_out,
                                __global short* right_out) {
   size_t id = get_global_id(0);
+  // The reason for this is if
+  if (id > elems) return;
+
+  // TODO: If the device can load a whole row into memory, then we can use
+  // workgroups that
   short col = id % width;
-  short left_disp = left_in[id];
-  short right_disp = right_in[id];
+  short left_in_disp = left_in[id];
+  short right_in_disp = right_in[id];
+  short left_out_disp = INVALID_DISPARITY_VALUE;
+  short right_out_disp = INVALID_DISPARITY_VALUE;
 
   // Look to see if there is a point in the right image that matches
   // the disparity in the left image with the specified tolerance
-  if (left_disp != INVALID_DISPARITY_VALUE &&
-      col + left_disp < width  // Make sure this index is in the same row
-      && abs(left_disp - right_in[id + left_disp]) <= tol) {
-    left_out[id] = left_disp;
-  } else {
-    left_out[id] = INVALID_DISPARITY_VALUE;
+  if (left_in_disp != INVALID_DISPARITY_VALUE &&
+      col + left_in_disp < width  // Make sure this index is in the same row
+      && abs(left_in_disp - right_in[id + left_in_disp]) <= tol) {
+    left_out_disp = left_in_disp;
   }
 
   // Look to see if there is a point in the left image that matches
   // the disparity in the right image with the specified tolerance
-  if (right_disp != INVALID_DISPARITY_VALUE &&
-      col - right_disp >= 0  // Make sure this index is in the same row
-      && abs(right_disp - left_in[id - right_disp]) <= tol) {
-    right_out[id] = right_disp;
-  } else {
-    right_out[id] = INVALID_DISPARITY_VALUE;
+  if (right_in_disp != INVALID_DISPARITY_VALUE &&
+      col - right_in_disp >= 0  // Make sure this index is in the same row
+      && abs(right_in_disp - left_in[id - right_in_disp]) <= tol) {
+    right_out_disp = right_in_disp;
   }
+
+  // Assign the global output memory
+  left_out[id] = left_out_disp;
+  right_out[id] = right_out_disp;
 
   // Uncomment the following line if you want to see the IDs
   //  if (left_in[id] != 0) {
