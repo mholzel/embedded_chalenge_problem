@@ -31,61 +31,70 @@
 
 #endif  // __cplusplus
 
+// TODO: It is preferable to use macros for tol, width, elems.
+// We are not doing it here so that we can test multiple settings,
+// but you pass that in the same way that we set the INVALID_DISPARITY_VALUE
 __kernel void consistencyCheck(short tol, short width,
-                               __global const short* const left_in,
+                               short elems __global const short* const left_in,
                                __global const short* const right_in,
                                __global short* left_out,
                                __global short* right_out) {
   size_t id = get_global_id(0);
+
+  // If we are trying to optimize blocks, it could be that there are more
+  // items than elements in the image. This prevents out of bounds access
+  if (id > elems) return;
+
+  // TODO: If the device can load a whole row into memory, then we can use
+  // workgroups that hold an entire row. In that case, we can use other
+  // dimensions to get the column index which might be faster than modulo
   short col = id % width;
+  short left_in_disp = left_in[id];
+  short right_in_disp = right_in[id];
+  short left_out_disp = INVALID_DISPARITY_VALUE;
+  short right_out_disp = INVALID_DISPARITY_VALUE;
   size_t row_offset = id - col;
-  short left_disp = left_in[id];
-  short right_disp = right_in[id];
 
   // Look to see if there is a point in the right image that matches
   // the disparity in the left image with the specified tolerance
-  if (left_disp != INVALID_DISPARITY_VALUE &&
-      col + left_disp < width  // Make sure this index is in the same row
+  if (left_in_disp != INVALID_DISPARITY_VALUE &&
+      col + left_in_disp < width  // Make sure this index is in the same row
   ) {
-    short matched_col_in_right = col + left_disp;
+    short matched_col_in_right = col + left_in_disp;
     size_t start = row_offset + max(0, matched_col_in_right - tol);
     size_t stop = row_offset + min(width - 1, matched_col_in_right + tol);
     bool match_found = false;
     for (size_t i = start; i <= stop; ++i) {
       if (abs(i - id - right_in[i]) <= tol) {
-        left_out[id] = left_disp;
-        match_found = true;
+        left_out_disp = left_in_disp;
         break;
       }
     }
-    if (!match_found) {
-      left_out[id] = INVALID_DISPARITY_VALUE;
-    }
-  } else {
-    left_out[id] = INVALID_DISPARITY_VALUE;
   }
 
   // Look to see if there is a point in the left image that matches
   // the disparity in the right image with the specified tolerance
-  if (right_disp != INVALID_DISPARITY_VALUE &&
-      col - right_disp >= 0  // Make sure this index is in the same row
+  if (right_in_disp != INVALID_DISPARITY_VALUE &&
+      col - right_in_disp >= 0  // Make sure this index is in the same row
   ) {
-    short matched_col_in_left = col - right_disp;
+    short matched_col_in_left = col - right_in_disp;
     size_t start = row_offset + max(0, matched_col_in_left - tol);
     size_t stop = row_offset + min(width - 1, matched_col_in_left + tol);
     bool match_found = false;
     for (size_t i = start; i <= stop; ++i) {
       if (abs(id - i - left_in[i]) <= tol) {
-        right_out[id] = right_disp;
-        match_found = true;
+        right_out_disp = right_in_disp;
         break;
       }
     }
-    if (!match_found) {
-      right_out[id] = INVALID_DISPARITY_VALUE;
-    }
-  } else {
-    right_out[id] = INVALID_DISPARITY_VALUE;
+  }
+
+  // Assign the global output memory
+  if (left_out_disp != INVALID_DISPARITY_VALUE) {
+    left_out[id] = left_out_disp;
+  }
+  if (right_out_disp != INVALID_DISPARITY_VALUE) {
+    right_out[id] = right_out_disp;
   }
 
   // Uncomment the following line if you want to see the IDs
