@@ -8,17 +8,24 @@
 #include "random_disparity_image.hpp"
 #include "type_to_string.hpp"
 
+enum class ImageType { Random, Solid, File };
+
 int main() {
   static constexpr auto show_images = true;
-  static constexpr auto random_images = false;
+  auto image_type = ImageType::Solid;
   const auto here = fs::absolute(__FILE__).parent_path();
 
   cv::Mat left_in;
   cv::Mat right_in;
-  if (random_images) {
+  if (image_type == ImageType::Random) {
     left_in = randomDisparityImage(512, 1024);
     right_in = randomDisparityImage(512, 1024);
-  } else {
+  } else if (image_type == ImageType::Solid) {
+    // With these, the middle part of the image should have disparity values
+    // which overflow. So those middle values should be invalidated.
+    left_in = solidImage(512, 1024, 1000);
+    right_in = solidImage(512, 1024, 1000);
+  } else if (image_type == ImageType::File) {
     // Load the input matrices
     const auto left_in_path = here / "../data/disp_left.png";
     left_in = cv::imread(left_in_path.c_str(), cv::IMREAD_ANYDEPTH);
