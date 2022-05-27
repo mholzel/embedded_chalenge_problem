@@ -32,7 +32,7 @@
 #endif  // __cplusplus
 
 __kernel void consistencyCheck(
-// TODO: It is preferable to use macros for tol, width, elems.
+// It is preferable to use macros for tol, width, elems.
 // We are not doing it here so that we can test multiple settings,
 // but you pass that in the same way that we set the INVALID_DISPARITY_VALUE
 #ifndef TOL
@@ -60,40 +60,21 @@ __kernel void consistencyCheck(
   short right_in_disp = right_in[id];
   short left_out_disp = INVALID_DISPARITY_VALUE;
   short right_out_disp = INVALID_DISPARITY_VALUE;
-  size_t row_offset = id - col;
 
   // Look to see if there is a point in the right image that matches
   // the disparity in the left image with the specified tolerance
   if (left_in_disp != INVALID_DISPARITY_VALUE &&
       col + left_in_disp < WIDTH  // Make sure this index is in the same row
-  ) {
-    short matched_col_in_right = col + left_in_disp;
-    size_t start = row_offset + max(0, matched_col_in_right - TOL);
-    size_t stop = row_offset + min(WIDTH - 1, matched_col_in_right + TOL);
-    bool match_found = false;
-    for (size_t i = start; i <= stop; ++i) {
-      if (abs(i - id - right_in[i]) <= TOL) {
-        left_out_disp = left_in_disp;
-        break;
-      }
-    }
+      && abs(left_in_disp - right_in[id + left_in_disp]) <= TOL) {
+    left_out_disp = left_in_disp;
   }
 
   // Look to see if there is a point in the left image that matches
   // the disparity in the right image with the specified tolerance
   if (right_in_disp != INVALID_DISPARITY_VALUE &&
       col - right_in_disp >= 0  // Make sure this index is in the same row
-  ) {
-    short matched_col_in_left = col - right_in_disp;
-    size_t start = row_offset + max(0, matched_col_in_left - TOL);
-    size_t stop = row_offset + min(WIDTH - 1, matched_col_in_left + TOL);
-    bool match_found = false;
-    for (size_t i = start; i <= stop; ++i) {
-      if (abs(id - i - left_in[i]) <= TOL) {
-        right_out_disp = right_in_disp;
-        break;
-      }
-    }
+      && abs(right_in_disp - left_in[id - right_in_disp]) <= TOL) {
+    right_out_disp = right_in_disp;
   }
 
   // Assign the global output memory
@@ -105,8 +86,8 @@ __kernel void consistencyCheck(
   }
 
   // Uncomment the following line if you want to see the IDs
-  //  if (left_disp != 0) {
+  //  if (left_in[id] != 0) {
   //    printf("global, local id: %zu, %zu %u %u\n", get_global_id(0),
-  //           get_local_id(0), left_disp, left_out[id]);
+  //           get_local_id(0), left_in[id], left_out[id]);
   //  }
 }

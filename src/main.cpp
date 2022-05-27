@@ -69,7 +69,7 @@ int main() {
   //      + " -DTOL=" + std::to_string(500)     //
   //      + " -DWIDTH=" + std::to_string(cols)  //
   //      + " -DELEMS=" + std::to_string(rows * cols);
-  const auto opencl_file = here / "../cl/consistency_check_single.cl";
+  const auto opencl_file = here / "../cl/consistency_check.cl";
   auto consistency_check_ptr = ConsistencyCheck::generate(
       opencl_file.c_str(), "consistencyCheck", macros);
   if (not consistency_check_ptr) {
