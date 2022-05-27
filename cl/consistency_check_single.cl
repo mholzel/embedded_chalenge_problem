@@ -40,11 +40,14 @@ __kernel void consistencyCheck(short tol, short width, short elems,
                                __global short* left_out,
                                __global short* right_out) {
   size_t id = get_global_id(0);
-  // The reason for this is if
+
+  // If we are trying to optimize blocks, it could be that there are more
+  // items than elements in the image. This prevents out of bounds access
   if (id > elems) return;
 
   // TODO: If the device can load a whole row into memory, then we can use
-  // workgroups that
+  // workgroups that hold an entire row. In that case, we can use other
+  // dimensions to get the column index which might be faster than modulo
   short col = id % width;
   short left_in_disp = left_in[id];
   short right_in_disp = right_in[id];
@@ -68,8 +71,12 @@ __kernel void consistencyCheck(short tol, short width, short elems,
   }
 
   // Assign the global output memory
-  left_out[id] = left_out_disp;
-  right_out[id] = right_out_disp;
+  if (left_out_disp != INVALID_DISPARITY_VALUE) {
+    left_out[id] = left_out_disp;
+  }
+  if (right_out_disp != INVALID_DISPARITY_VALUE) {
+    right_out[id] = right_out_disp;
+  }
 
   // Uncomment the following line if you want to see the IDs
   //  if (left_in[id] != 0) {
