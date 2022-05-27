@@ -54,45 +54,20 @@ __kernel void consistencyCheck(
 
   //  if (id > ELEMS) return;
 
-  // TODO: If the device can load a whole row into memory, then we can use
-  // workgroups that hold an entire row. In that case, we can use other
-  // dimensions to get the column index which might be faster than modulo
+  // TODO: Replace modulo
   short col = id % WIDTH;
   short left_in_disp = left_in[id];
   short right_in_disp = right_in[id];
-  short left_out_disp = INVALID_DISPARITY_VALUE;
-  short right_out_disp = INVALID_DISPARITY_VALUE;
 
-  // TODO: If possible, you should try to avoid branches on GPUs and
-  // accelerators. Ideally we would add a macro that would let us compile these
-  // either as if-statements or tenary expressions.
   // Look to see if there is a point in the right image that
   // matches the disparity in the left image with the specified tolerance
-  if (left_in_disp != INVALID_DISPARITY_VALUE &&
+  left_out[id] =  (left_in_disp != INVALID_DISPARITY_VALUE &&
       col + left_in_disp < WIDTH  // Make sure this index is in the same row
-      && abs(left_in_disp - right_in[id + left_in_disp]) <= TOL) {
-    left_out_disp = left_in_disp;
-  }
+      && abs(left_in_disp - right_in[id + left_in_disp]) <= TOL) ?  left_in_disp : INVALID_DISPARITY_VALUE;
 
   // Look to see if there is a point in the left image that matches
   // the disparity in the right image with the specified tolerance
-  if (right_in_disp != INVALID_DISPARITY_VALUE &&
+  right_out[id] = (right_in_disp != INVALID_DISPARITY_VALUE &&
       col - right_in_disp >= 0  // Make sure this index is in the same row
-      && abs(right_in_disp - left_in[id - right_in_disp]) <= TOL) {
-    right_out_disp = right_in_disp;
-  }
-
-  // Assign the global output memory
-  if (left_out_disp != INVALID_DISPARITY_VALUE) {
-    left_out[id] = left_out_disp;
-  }
-  if (right_out_disp != INVALID_DISPARITY_VALUE) {
-    right_out[id] = right_out_disp;
-  }
-
-  // Uncomment the following line if you want to see the IDs
-  //  if (left_in[id] != 0) {
-  //    printf("global, local id: %zu, %zu %u %u\n", get_global_id(0),
-  //           get_local_id(0), left_in[id], left_out[id]);
-  //  }
+      && abs(right_in_disp - left_in[id - right_in_disp]) <= TOL)  ?  right_in_disp :  INVALID_DISPARITY_VALUE;
 }
