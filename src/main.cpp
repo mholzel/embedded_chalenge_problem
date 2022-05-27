@@ -5,24 +5,33 @@
 #include "average_time.hpp"
 #include "filesystem.hpp"
 #include "generate_consistency_check.hpp"
+#include "random_disparity_image.hpp"
 #include "type_to_string.hpp"
 
 int main() {
   static constexpr auto show_images = true;
+  static constexpr auto random_images = false;
   const auto here = fs::absolute(__FILE__).parent_path();
 
-  // Load the input matrices
-  const auto left_in_path = here / "../data/disp_left.png";
-  cv::Mat left_in = cv::imread(left_in_path.c_str(), cv::IMREAD_ANYDEPTH);
-  if (left_in.empty()) {
-    std::cerr << "Could not read the image: " << left_in_path << std::endl;
-    return EXIT_FAILURE;
-  }
-  const auto right_in_path = here / "../data/disp_right.png";
-  cv::Mat right_in = cv::imread(right_in_path.c_str(), cv::IMREAD_ANYDEPTH);
-  if (right_in_path.empty()) {
-    std::cerr << "Could not read the image: " << right_in_path << std::endl;
-    return EXIT_FAILURE;
+  cv::Mat left_in;
+  cv::Mat right_in;
+  if (random_images) {
+    left_in = randomDisparityImage(512, 1024);
+    right_in = randomDisparityImage(512, 1024);
+  } else {
+    // Load the input matrices
+    const auto left_in_path = here / "../data/disp_left.png";
+    left_in = cv::imread(left_in_path.c_str(), cv::IMREAD_ANYDEPTH);
+    if (left_in.empty()) {
+      std::cerr << "Could not read the image: " << left_in_path << std::endl;
+      return EXIT_FAILURE;
+    }
+    const auto right_in_path = here / "../data/disp_right.png";
+    right_in = cv::imread(right_in_path.c_str(), cv::IMREAD_ANYDEPTH);
+    if (right_in_path.empty()) {
+      std::cerr << "Could not read the image: " << right_in_path << std::endl;
+      return EXIT_FAILURE;
+    }
   }
 
   // Downsize for testing
