@@ -13,12 +13,14 @@ For example, suppose that the tip of a pencil is observed in both a left and rig
 Now unfortunately, matching is an expensive operation, so we might consider using some approximate methods to generate the disparity image, or there might be other features that make the matching break down (such as texture, occlusions, etc.). Hence if reliability is critical, then we may want to consider generating both a left and right disparity image, and cross-referencing the two. For example, in the previous case, we said that the left disparity image should have a value of 10 in column 87 of the pencil-tip row, whereas the right disparity image should have a value of 10 in column 97. If that case were the case, then that specific pixel in both images would be called *consistent*. 
 
 However, what if right disparity image had a value of 90 in column 97? That would suggest that the left pixel at column 87 matched with column 97 of the right image, but the right pixel at column 97 matched with column 7 of the left image. Therefore, depending on tolerances, we might call the pixel at column 87 in the left image *inconsistent*. Mathematically that check should look something like 
-$$
-\Bigg| \texttt{left}_{\texttt{disp}}\big[\texttt{row}, \texttt{col}\big] - \texttt{right}_{\texttt{disp}}\big[\texttt{col} + \texttt{left}_{\texttt{disp}}[\texttt{row},\texttt{col}]\big] \Bigg| \leq \texttt{tol}
-$$
+
+```c++
+abs( left_disp[row, col] - right_disp[row, col + left_disp[row, col]] ) <= tol
+```
+
 and if the test fails, then we should invalidate that pixel in the left disparity image to indicate that the depth information from the pixel is not reliable, that is, 
 
-```
+```c++
 if (test fails)
     left_disp[row, col] = INVALID_DISPARITY_VALUE;
 ```
@@ -31,10 +33,11 @@ One other point that we touched upon was the idea of a tolerance. As with all en
 
 ## A More Relaxed Check 
 
-One of difficult area for pixel matching is when there are large swaths of the image with the same pattern. For example, image a black and white checkboard-styled tile floor. Such areas might be problematic because the pixel matching has to figure out which black square in one image corresponds to which black square in the other image, and then go one step further and actually match the pixels in those squares. The problem is that in this areas of similar colors, we can imagine that the disparity image might have some noise. So we might want to relax the disparity check to say 
+One of difficult area for pixel matching is when there are large swaths of the image with the same pattern. For example, imagine a black and white checkboard-styled tile floor. Such areas might be problematic because the pixel matching has to figure out which black square in one image corresponds to which black square in the other image, and then go one step further and actually match the pixels in those squares. The problem is that in this areas of similar colors, we can imagine that the disparity image might have some noise. So we might want to relax the disparity check to say 
 $$
 \exists \texttt{i}\in[-\texttt{tol}, \texttt{tol}]\texttt{  s.t.  } \Bigg| \texttt{left}_{\texttt{disp}}\big[\texttt{row}, \texttt{col}\big] + \texttt{i} - \texttt{right}_{\texttt{disp}}\big[\texttt{col} + \texttt{left}_{\texttt{disp}}[\texttt{row},\texttt{col}]\big] + \texttt{i}\Bigg| \leq \texttt{tol}
 $$
+that is, instead of validating against only the precise pixel match in the right image, see if there is a nearby pixel in the right disparity image that matches. I mention this only as a matter of personal interest. In what follows, we focus on the standard consistency check.
 
 # OpenCL Specifics 
 
@@ -80,13 +83,13 @@ The critical thing to understand about work items vs work groups is we can basic
 
 To get a better grasp on what a work group is, I like to think of my GPU as being composed of smaller GPU chips. A work group is essentially a chunk of work items that will run on one of these smaller chips inside the larger GPU. The size of the work group is basically limited by the number of threads that these smaller GPU chips can run in parallel. The primary reason to run work items in a work group is that they will all have access to the same set of fast shared memory called *local memory*. Just like on your CPU, the GPU has layers of cache, and a work item can access memory available to just that work item, called *private* memory, memory available to the whole work group, called *local memory*, and memory available to the whole GPU, called *global memory*. Part of the art of writing fast OpenCL kernels is in limiting access to the global memory. 
 
-For instance, one common strategy in OpenCL programming is to first have all of the work items in a work group copy a large object from global into local memory, and then for all of the work items to operate on that local memory copy. Bringing this full circle to the task at hand... 
+For instance, one common strategy in OpenCL programming is to first have all of the work items in a work group copy a large object from global into local memory, and then for all of the work items to operate on that local memory copy. This brings us full circle to the task at hand... 
 
 ## Optimizing the kernel 
 
 ### Basic cache questions
 
-We know that the basic operation that a consistency check should perform is 
+We know that the basic operation that a consistency check should perform looks like:
 
 ```c++
 __kernel void consistencyCheck(
@@ -155,8 +158,9 @@ __kernel void consistencyCheck(__global short* left, __global short* right) {
     if (abs(right_in_disp - left[id - right_in_disp]) <= TOL) {
       right_out_disp = right_in_disp;
     }
-    // TODO: Synchronize the work items so that nobody overwrites a value 
+    // Synchronize the work items so that nobody overwrites a value 
     // while another work item is trying to extract.
+    barrier(CLK_GLOBAL_MEM_FENCE);
     left[id] = left_out_disp;
     right[id] = right_out_disp;
 }
@@ -170,7 +174,7 @@ If you refer back to the original statistics for my device, it says that the max
 CL_DEVICE_MAX_WORK_GROUP_SIZE       : 256
 ```
 
-So if we have an image with rows less than or equal to that size, and we add a synchronization lock to the kernel, then we can comfortably use the above approach.  For images with larger rows, we would need to process more than one pixel per work item:
+So if we have an image with rows less than or equal to that size, and we add a synchronization lock to the kernel, then we can comfortably use the above approach.  For images with more than 256 rows, we need to consider a different approach, otherwise one work group will start overwriting global data that another work group needs. Thus in summary, we need to either use the kernel with a dedicated input and output, or we need to process more than one pixel per work item:
 
 ```c++
 __kernel void consistencyCheck(__global short* left, __global short* right) {
@@ -222,28 +226,52 @@ __kernel void consistencyCheck(	__local short* local_left,
     // Some compiler have a #pragma unroll option for that
     // But that would be premature operation at this point because unrolling will make
     // the kernel size larger, and might limit the max work group size
+    short local;
     for (short i = id; i < id + pixels_per_work_item ; ++i){
-        if (abs(left_local[i] - right_local[i + left_local[i]]) <= TOL) { 
-          left[i] = left_local[i];
-        } else {
-          left[i] = INVALID;
-        }
-        if (abs(right_local[i] - left_local[i - right_local[i]]) <= TOL) {
-          right[i] = right_in_disp[i];
-		} else {
-          right[i] = INVALID;
-        }
+        local = left_local[i];
+        left[i] = abs(local - right_local[i + local]) <= TOL ? local : INVALID;
+        local = right_local[i];
+        right[i] = abs(local - left_local[i - local]) <= TOL ? local : INVALID; 
     }
 }
 ```
 
-
+Again, this is just the rough sketch of what we need to do. The devil is in the details. Let's talk about some of those now.... 
 
 ## Data Transfer
 
-One of the slowest operations between 
+One of the slowest operations when dealing with the GPU is simply getting data into and out of the GPU. The basic consistency kernel has a function signature that roughly looks like 
 
+```
+__kernel void consistencyCheck(
+    __global const short* const left_in, 
+    __global const short* const right_in,
+    __global short* left_out, 
+    __global short* right_out) {
+```
 
+whereas the modified kernel has a signature like 
+
+```
+__kernel void consistencyCheck(	__local short* local_left, 
+                               	__local short* local_right,
+                               	__global short* left, 
+                               	__global short* right) {
+```
+
+So as we can see, the second form should in principle be much preferred because it only requires us to transfer 2 images across this slow interface. Furthermore, the simple kernel will approximately involve 2 extra hits to global memory per work item. However, we need to keep in mind that the local-memory version has a lot of addition overhead for bookkeeping and synchronization. So determining which kernel is better for your system can only be determined by profiling.
+
+However, one thing that both of these kernels would benefit from is to analyze what options for PINNED or MAPPED memory exist. Some compilers and SoCs will allocate a region of memory that is directly mapped between CPU and GPU. Those areas can be highly optimized by the compiler, and demonstrate drastically improved performance. I did not have time to investigate these, and the results would be specific to my system, but for a concrete use case, you could see a drastic performance uplift. 
+
+### Other optimizations
+
+I tried to keep the pseudocode as simple as possible to focus on the issues of memory management, which is often the most critical aspect of OpenCL performance. However, there are several other considerations one should leverage. Note that all of these will depend on the quality of the OpenCL compiler for your device. For certain compilers, these make no difference, or hurt performance, but for others you may see a massive uplift: 
+
+- Macros: Just like in C/C++, you can use macros for constant values. These can be passed to the OpenCL when compiling a kernel. Values like height, width, and the tolerance in the consistency check benefit from being passed as macros. 
+- Vectorization: A lot of operations that we use like addition, multiplication, etc can be vectorized in OpenCL. Unfortunately, we don't have a lot of such operations here. 
+- ​
+
+ one other factor which can have a drastic effect is to use macros whenever possible. 
 
 ## 
 
