@@ -29,75 +29,23 @@ class ConsistencyCheck {
   GetGlobalId get_global_id;
   size_t max_work_group_size;
   size_t work_group_size_multiple;
-  static constexpr bool verbose = false;
+  bool using_macros = false;
 
  public:
   ConsistencyCheck(const cl::Context &context, const cl::Device &device,
                    cl::Kernel &kernel, uint16_t width, uint16_t height,
-                   uint16_t tolerance)
+                   uint16_t tolerance, bool using_macros)
       : context(context),
         kernel(kernel),
         queue(context, device),  // CL_QUEUE_PROFILING_ENABLE),
-        tolerance(tolerance) {
+        tolerance(tolerance),
+        using_macros(using_macros) {
     resize(width, height);
     kernel.getWorkGroupInfo(device, CL_KERNEL_WORK_GROUP_SIZE,
                             &max_work_group_size);
     kernel.getWorkGroupInfo(device,
                             CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
                             &work_group_size_multiple);
-  }
-
-  static std::unique_ptr<ConsistencyCheck> generate(
-      const cl::Context &context, const cl::Device &device,
-      const char *filename, const char *kernelname, std::string options,
-      uint16_t width = 0, uint16_t height = 0, uint16_t tolerance = 0) {
-    const auto program =
-        buildProgramFromFile(context, device, filename, options);
-    if (not program) {
-      std::cerr << "Could not generate the program" << std::endl;
-      return nullptr;
-    }
-
-    // Build the kernel from the program
-    cl_int error = CL_SUCCESS;
-    cl::Kernel kernel(*program, kernelname, &error);
-    if (error != CL_SUCCESS) {
-      std::cerr << "Error creating the kernel '" << kernelname
-                << "' from the file " << filename
-                << "\nCheck that you have not misspelled the name of the "
-                   "kernel in that file."
-                << std::endl;
-      return nullptr;
-    }
-    if (verbose) printDetails(device, kernel, kernelname, filename);
-    return std::make_unique<ConsistencyCheck>(context, device, kernel, width,
-                                              height, tolerance);
-  }
-
-  static std::unique_ptr<ConsistencyCheck> generate(
-      const char *filename, const char *kernelname, std::string options = "",
-      uint16_t width = 0, uint16_t height = 0, uint16_t tolerance = 0,
-      cl_device_type device_type = CL_DEVICE_TYPE_GPU) {
-    // Get a list of devices of the specified type
-    cl::Context context(device_type);
-    const auto devices = context.getInfo<CL_CONTEXT_DEVICES>();
-    if (devices.empty()) {
-      std::cerr << "There are no devices of type "
-                << deviceTypeToString(device_type) << " in this context";
-      return nullptr;
-    }
-    if (devices.size() > 1) {
-      std::cerr << "There are more than one device in this context. You may "
-                   "want to consider specifying the device manually. We are "
-                   "using the first entry."
-                << std::endl;
-    }
-
-    // Use the first device to generate the kernel
-    cl::Device device(devices[0]);
-    if (verbose) printDetails(device);
-    return generate(context, device, filename, kernelname, options, width,
-                    height, tolerance);
   }
 
   static auto imageBytes(int16_t width, int16_t height) {
@@ -124,9 +72,11 @@ class ConsistencyCheck {
 
       // Set the kernel arguments
       cl_uint arg = 0;
-      showErrors(kernel.setArg<cl_short>(arg++, tolerance));
-      showErrors(kernel.setArg<cl_short>(arg++, width));
-      showErrors(kernel.setArg<cl_short>(arg++, width * height));
+      if (not using_macros) {
+        showErrors(kernel.setArg<cl_short>(arg++, tolerance));
+        showErrors(kernel.setArg<cl_short>(arg++, width));
+        showErrors(kernel.setArg<cl_short>(arg++, width * height));
+      }
       showErrors(kernel.setArg<cl::Buffer>(arg++, left_in_buf));
       showErrors(kernel.setArg<cl::Buffer>(arg++, right_in_buf));
       showErrors(kernel.setArg<cl::Buffer>(arg++, left_out_buf));
@@ -137,7 +87,9 @@ class ConsistencyCheck {
   void setTolerance(uint16_t tol) {
     if (tolerance != tol) {
       tolerance = tol;
-      kernel.setArg<cl_short>(0, tolerance);
+      if (not using_macros) {
+        kernel.setArg<cl_short>(0, tolerance);
+      }
     }
   }
 

@@ -62,12 +62,12 @@ inline std::unique_ptr<cl::Program> buildProgramFromFile(
     }
     building = false;
   });
-  std::cout << "Building " << filename << std::endl;
   while (building) {
     std::cout << "." << std::flush;
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
-  std::cout << "\rBuilt in " << elapsed << " seconds" << std::endl;
+  std::cout << "\rBuilt " << filename << " in " << elapsed << " seconds"
+            << std::endl;
   if (compilation_thread.joinable()) {
     compilation_thread.join();
   }
