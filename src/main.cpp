@@ -64,8 +64,11 @@ int main() {
   }
 
   // Set up the consistency check kernel
-  const auto macros =
-      "-D INVALID_DISPARITY_VALUE=" + std::to_string(INVALID_DISPARITY_VALUE);
+  const auto macros = "-D INVALID_DISPARITY_VALUE=" +
+                      std::to_string(INVALID_DISPARITY_VALUE);  //
+  //      + " -DTOL=" + std::to_string(500)     //
+  //      + " -DWIDTH=" + std::to_string(cols)  //
+  //      + " -DELEMS=" + std::to_string(rows * cols);
   const auto opencl_file = here / "../cl/consistency_check_single.cl";
   auto consistency_check_ptr = ConsistencyCheck::generate(
       opencl_file.c_str(), "consistencyCheck", macros);
@@ -77,7 +80,7 @@ int main() {
   consistency_check.setTolerance(500 / scale);
 
   // Run the consistency check
-  for (size_t i = 0; i < 1; ++i) {
+  for (size_t i = 0; i < 10; ++i) {
     ScopedTimer timer;
     if (consistency_check(left_in, right_in, left_out, right_out)) {
       return EXIT_FAILURE;

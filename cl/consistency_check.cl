@@ -31,24 +31,31 @@
 
 #endif  // __cplusplus
 
+__kernel void consistencyCheck(
 // TODO: It is preferable to use macros for tol, width, elems.
 // We are not doing it here so that we can test multiple settings,
 // but you pass that in the same way that we set the INVALID_DISPARITY_VALUE
-__kernel void consistencyCheck(short tol, short width,
-                               short elems __global const short* const left_in,
-                               __global const short* const right_in,
-                               __global short* left_out,
-                               __global short* right_out) {
+#ifndef TOL
+    short TOL,
+#endif
+#ifndef WIDTH
+    short WIDTH,
+#endif
+#ifndef ELEMS
+    short ELEMS,
+#endif
+    __global const short* const left_in, __global const short* const right_in,
+    __global short* left_out, __global short* right_out) {
   size_t id = get_global_id(0);
 
   // If we are trying to optimize blocks, it could be that there are more
   // items than elements in the image. This prevents out of bounds access
-  if (id > elems) return;
+  if (id > ELEMS) return;
 
   // TODO: If the device can load a whole row into memory, then we can use
   // workgroups that hold an entire row. In that case, we can use other
   // dimensions to get the column index which might be faster than modulo
-  short col = id % width;
+  short col = id % WIDTH;
   short left_in_disp = left_in[id];
   short right_in_disp = right_in[id];
   short left_out_disp = INVALID_DISPARITY_VALUE;
@@ -58,14 +65,14 @@ __kernel void consistencyCheck(short tol, short width,
   // Look to see if there is a point in the right image that matches
   // the disparity in the left image with the specified tolerance
   if (left_in_disp != INVALID_DISPARITY_VALUE &&
-      col + left_in_disp < width  // Make sure this index is in the same row
+      col + left_in_disp < WIDTH  // Make sure this index is in the same row
   ) {
     short matched_col_in_right = col + left_in_disp;
-    size_t start = row_offset + max(0, matched_col_in_right - tol);
-    size_t stop = row_offset + min(width - 1, matched_col_in_right + tol);
+    size_t start = row_offset + max(0, matched_col_in_right - TOL);
+    size_t stop = row_offset + min(WIDTH - 1, matched_col_in_right + TOL);
     bool match_found = false;
     for (size_t i = start; i <= stop; ++i) {
-      if (abs(i - id - right_in[i]) <= tol) {
+      if (abs(i - id - right_in[i]) <= TOL) {
         left_out_disp = left_in_disp;
         break;
       }
@@ -78,11 +85,11 @@ __kernel void consistencyCheck(short tol, short width,
       col - right_in_disp >= 0  // Make sure this index is in the same row
   ) {
     short matched_col_in_left = col - right_in_disp;
-    size_t start = row_offset + max(0, matched_col_in_left - tol);
-    size_t stop = row_offset + min(width - 1, matched_col_in_left + tol);
+    size_t start = row_offset + max(0, matched_col_in_left - TOL);
+    size_t stop = row_offset + min(WIDTH - 1, matched_col_in_left + TOL);
     bool match_found = false;
     for (size_t i = start; i <= stop; ++i) {
-      if (abs(id - i - left_in[i]) <= tol) {
+      if (abs(id - i - left_in[i]) <= TOL) {
         right_out_disp = right_in_disp;
         break;
       }
