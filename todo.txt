@@ -1,6 +1,7 @@
 - Add GUI with different sliders for image size
 X Add timers for the encoder
 - Add test with sliding checkboard
+- Add random images to ensure that the code is not optimizing the transfer
 - Add test with very large images
 - Add warnings when whole row cannot be loaded
 - Split image if too large
