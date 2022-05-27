@@ -29,6 +29,7 @@ class ConsistencyCheck {
   GetGlobalId get_global_id;
   size_t max_work_group_size;
   size_t work_group_size_multiple;
+  static constexpr bool verbose = false;
 
  public:
   ConsistencyCheck(const cl::Context &context, const cl::Device &device,
@@ -49,7 +50,7 @@ class ConsistencyCheck {
   static std::unique_ptr<ConsistencyCheck> generate(
       const cl::Context &context, const cl::Device &device,
       const char *filename, const char *kernelname, std::string options,
-      uint16_t width, uint16_t height, uint16_t tolerance) {
+      uint16_t width = 0, uint16_t height = 0, uint16_t tolerance = 0) {
     const auto program =
         buildProgramFromFile(context, device, filename, options);
     if (not program) {
@@ -68,7 +69,7 @@ class ConsistencyCheck {
                 << std::endl;
       return nullptr;
     }
-    printDetails(device, kernel, kernelname, filename);
+    if (verbose) printDetails(device, kernel, kernelname, filename);
     return std::make_unique<ConsistencyCheck>(context, device, kernel, width,
                                               height, tolerance);
   }
@@ -94,7 +95,7 @@ class ConsistencyCheck {
 
     // Use the first device to generate the kernel
     cl::Device device(devices[0]);
-    printDetails(device);
+    if (verbose) printDetails(device);
     return generate(context, device, filename, kernelname, options, width,
                     height, tolerance);
   }
