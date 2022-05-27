@@ -61,8 +61,11 @@ __kernel void consistencyCheck(
   short left_out_disp = INVALID_DISPARITY_VALUE;
   short right_out_disp = INVALID_DISPARITY_VALUE;
 
-  // Look to see if there is a point in the right image that matches
-  // the disparity in the left image with the specified tolerance
+  // TODO: If possible, you should try to avoid branches on GPUs and
+  // accelerators. Ideally we would add a macro that would let us compile these
+  // either as if-statements or tenary expressions.
+  // Look to see if there is a point in the right image that
+  // matches the disparity in the left image with the specified tolerance
   if (left_in_disp != INVALID_DISPARITY_VALUE &&
       col + left_in_disp < WIDTH  // Make sure this index is in the same row
       && abs(left_in_disp - right_in[id + left_in_disp]) <= TOL) {
